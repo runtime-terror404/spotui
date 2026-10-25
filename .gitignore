@@ -1,0 +1,10 @@
+# Claude Code session data
+.claude/
+session.txt
+
+# Python
+__pycache__/
+*.pyc
+
+# v0 snapshot (reference only)
+v0/
