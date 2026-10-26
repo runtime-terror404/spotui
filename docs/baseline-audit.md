@@ -158,7 +158,7 @@ test, and a clean-wheel install:
 - Legacy queue migration, installer, systemd helper, and release automation are
   later phases.
 
-## 8. Phase 2 completion and next phase
+## 8. Phase 2 and Phase 3 completion
 
 Phase 2 (persistence and API base) is complete for the base layer:
 
@@ -171,7 +171,31 @@ Phase 2 (persistence and API base) is complete for the base layer:
 - API fixtures and tests cover the problem contract, validation, HTTP errors,
   unexpected exceptions, and OpenAPI versioning.
 
-Next is Phase 3: Amazon search and entity details behind adapters, followed by
-the React search/detail views and Vite asset packaging. Phase 3 must also
-establish the separate Playwright/Chromium runtime check for the Amazon web
-adapter before live search work is considered complete.
+Phase 3 (search and entity details) is complete for the adapter/UI layer:
+
+- Strict Amazon URL parsing restricts https requests to `music.amazon.com` and
+  `music.amazon.in` and classifies artist/album/playlist/community/track paths.
+- A serialized Playwright worker handles Amazon search, artist detail, and
+  community-playlist scrolling. Pure parsers are covered by synthetic fixtures.
+- Album/editorial-playlist detail runs through a packaged JSON bridge executed
+  by the managed lucidadl Python, preserving the environment separation.
+- Search caching, typed catalog schemas, `/api/v1/search`, and
+  `/api/v1/entities/detail` are implemented with provider error mapping.
+- The React/TypeScript/Vite UI implements the search and entity-detail flows,
+  inline loading/error/empty states, back-navigation restoration, keyboard
+  focus, responsive layout, and light/dark tokens. Queue/Settings navigation is
+  visibly disabled until their phases.
+- The Vite build writes into `src/spotui/web/dist/`; hatchling packages those
+  generated assets into both wheel and sdist. A clean wheel install served the
+  built frontend and assets successfully.
+
+Routine tests use mocked providers; no live Amazon request, managed-lucidadl
+environment, or download was exercised in the sandbox. The generated provider
+fixtures are synthetic, not captured live responses. `spotui deps check`
+reports the SpotUI Playwright/Chromium runtime and the managed downloader
+status.
+
+Next is Phase 4: the persisted download queue/worker, explicit retry and
+cancellation, shutdown/recovery behavior, and the compatibility library-dedup
+step. Phase 4 must capture real pinned-lucidadl output before finalizing
+numeric progress parsing or the release pin.

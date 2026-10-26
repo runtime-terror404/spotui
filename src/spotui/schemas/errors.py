@@ -26,6 +26,8 @@ class ErrorCode(StrEnum):
     INVALID_URL = "invalid_url"
     SPOTIFY_EXTRACTION_FAILED = "spotify_extraction_failed"
     AMAZON_SEARCH_FAILED = "amazon_search_failed"
+    AMAZON_UNAVAILABLE = "amazon_unavailable"
+    AMAZON_TIMEOUT = "amazon_timeout"
     ACTIVE_IMPORT_CONFLICT = "active_import_conflict"
     INVALID_SELECTION = "invalid_selection"
     STALE_REVISION = "stale_revision"

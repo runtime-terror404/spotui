@@ -61,7 +61,11 @@ def test_lifespan_is_reentrant_after_clean_shutdown(app, runtime: ApplicationRun
 
 
 def test_custom_placeholder(app, runtime: ApplicationRuntime) -> None:
-    custom = create_app(runtime, placeholder_html="<html>custom shell</html>")
+    custom = create_app(
+        runtime,
+        placeholder_html="<html>custom shell</html>",
+        serve_frontend=False,
+    )
 
     with TestClient(custom) as client:
         assert client.get("/").text == "<html>custom shell</html>"

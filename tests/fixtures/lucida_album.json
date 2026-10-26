@@ -1,0 +1,21 @@
+{
+  "type": "album",
+  "title": "Aashiqui 2",
+  "artists": [
+    { "name": "Arijit Singh" },
+    { "name": "Jeet Gannguli" }
+  ],
+  "coverArtwork": "https://images.example/aashiqui.jpg",
+  "tracks": [
+    {
+      "title": "Tum Hi Ho",
+      "url": "https://music.amazon.com/tracks/B002TRACK",
+      "artists": [{ "name": "Arijit Singh" }]
+    },
+    {
+      "title": "Sunn Raha Hai",
+      "url": "https://music.amazon.com/tracks/B003TRACK",
+      "artists": [{ "name": "Ankit Tiwari" }]
+    }
+  ]
+}

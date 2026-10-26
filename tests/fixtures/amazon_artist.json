@@ -1,0 +1,38 @@
+{
+  "methods": [
+    {
+      "template": {
+        "widgets": [
+          {
+            "title": "Top tracks",
+            "items": [
+              {
+                "primaryText": { "text": "1. Tum Hi Ho" },
+                "secondaryText": "Arijit Singh",
+                "primaryLink": { "deeplink": "/albums/B001ALBUM?trackAsin=B002TRACK" },
+                "image": "https://images.example/tum.jpg"
+              },
+              {
+                "primaryText": { "text": "2. Tum Hi Ho duplicate" },
+                "secondaryText": "Arijit Singh",
+                "primaryLink": { "deeplink": "/albums/B001ALBUM?trackAsin=B002TRACK" },
+                "image": "https://images.example/tum.jpg"
+              }
+            ]
+          },
+          {
+            "title": "Albums",
+            "items": [
+              {
+                "primaryText": { "text": "Aashiqui 2" },
+                "secondaryText": "Album • 2013",
+                "primaryLink": { "deeplink": "/albums/B001ALBUM" },
+                "image": "https://images.example/aashiqui.jpg"
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ]
+}

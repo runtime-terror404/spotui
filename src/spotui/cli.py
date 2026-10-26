@@ -23,7 +23,9 @@ from spotui.deps import (
     SUPPORTED_LUCIDADL_VERSION,
     DependencyError,
     check_downloader,
+    check_spotui_browser,
     install_downloader,
+    install_spotui_browser,
     report_lines,
 )
 from spotui.lifecycle import (
@@ -51,6 +53,7 @@ from spotui.server import (
     listener_specs,
     run_server,
 )
+from spotui.services.factory import build_application_services
 
 logger = logging.getLogger("spotui.cli")
 
@@ -164,13 +167,22 @@ def _cmd_serve(args: argparse.Namespace) -> int:
             lock.update_metadata({"urls": [listener.url for listener in listeners]})
             for listener in listeners:
                 logger.info("listening on %s (%s)", listener.url, listener.kind)
-            runtime = ApplicationRuntime(config=config, paths=paths, listeners=listeners)
-            app = create_app(runtime)
-            server = run_server(app, sockets, config)
-            if not server.started:
-                logger.error("server failed to start")
-                return 1
-            return 0
+            services = build_application_services(paths)
+            runtime = ApplicationRuntime(
+                config=config,
+                paths=paths,
+                listeners=listeners,
+                services=services,
+            )
+            try:
+                app = create_app(runtime)
+                server = run_server(app, sockets, config)
+                if not server.started:
+                    logger.error("server failed to start")
+                    return 1
+                return 0
+            finally:
+                services.close()
         finally:
             close_listeners(sockets)
     finally:
@@ -268,12 +280,18 @@ def _cmd_db_current(args: argparse.Namespace) -> int:
 
 def _cmd_deps_check(args: argparse.Namespace) -> int:
     paths = Paths.resolve(config_file=args.config)
-    report = check_downloader(paths)
-    print(f"Managed environment: {paths.lucidadl_env_dir}")
-    print(f"Pinned lucidadl: {SUPPORTED_LUCIDADL_VERSION}")
-    for line in report_lines(report):
-        print(line)
-    return 0 if report.ok else 1
+    downloader = check_downloader(paths)
+    browser = check_spotui_browser()
+    print("Managed downloader environment:")
+    print(f"  Environment: {paths.lucidadl_env_dir}")
+    print(f"  Pinned lucidadl: {SUPPORTED_LUCIDADL_VERSION}")
+    for line in report_lines(downloader):
+        print(f"  {line}")
+    print()
+    print("SpotUI browser runtime:")
+    for line in report_lines(browser):
+        print(f"  {line}")
+    return 0 if downloader.ok and browser.ok else 1
 
 
 def _install_deps(args: argparse.Namespace, *, upgrading: bool) -> int:
@@ -282,6 +300,8 @@ def _install_deps(args: argparse.Namespace, *, upgrading: bool) -> int:
     print(f"{action} managed lucidadl {SUPPORTED_LUCIDADL_VERSION} in {paths.lucidadl_env_dir}")
     try:
         install_downloader(paths)
+        print("Installing SpotUI's Playwright Chromium browser…")
+        install_spotui_browser()
     except DependencyError as exc:
         print(f"spotui: {exc}", file=sys.stderr)
         return 1

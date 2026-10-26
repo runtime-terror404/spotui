@@ -145,37 +145,65 @@ def test_status_reports_lan_plan(env, capsys, monkeypatch) -> None:
     assert "192.168.1.0/24" in output
 
 
-def test_deps_check_missing_environment(env, capsys) -> None:
+def test_deps_check_missing_environment(env, capsys, monkeypatch) -> None:
+    monkeypatch.setattr(
+        "spotui.cli.check_spotui_browser",
+        lambda: DependencyReport(
+            (DependencyCheck("SpotUI Playwright", CheckStatus.OK, "ok"),)
+        ),
+    )
+
     assert main(["deps", "check"]) == 1
 
     output = capsys.readouterr().out
     assert "missing" in output
     assert "deps install" in output
+    assert "SpotUI browser runtime" in output
 
 
 def test_deps_install_dispatches(env, capsys, monkeypatch) -> None:
     calls: list[Path] = []
+    browser_calls: list[bool] = []
     monkeypatch.setattr("spotui.cli.install_downloader", lambda paths: calls.append(paths))
+    monkeypatch.setattr(
+        "spotui.cli.install_spotui_browser",
+        lambda: browser_calls.append(True),
+    )
     monkeypatch.setattr(
         "spotui.cli.check_downloader",
         lambda paths: DependencyReport(
             (DependencyCheck("managed environment", CheckStatus.OK, str(paths.lucidadl_env_dir)),)
         ),
     )
+    monkeypatch.setattr(
+        "spotui.cli.check_spotui_browser",
+        lambda: DependencyReport(
+            (DependencyCheck("SpotUI Playwright", CheckStatus.OK, "ok"),)
+        ),
+    )
 
     assert main(["deps", "install"]) == 0
 
     assert calls == [env.paths]
+    assert browser_calls == [True]
     output = capsys.readouterr().out
     assert "Installing" in output
+    assert "SpotUI's Playwright Chromium" in output
 
 
 def test_deps_upgrade_dispatches(env, capsys, monkeypatch) -> None:
     monkeypatch.setattr("spotui.cli.install_downloader", lambda paths: None)
+    monkeypatch.setattr("spotui.cli.install_spotui_browser", lambda: None)
     monkeypatch.setattr(
         "spotui.cli.check_downloader",
         lambda paths: DependencyReport(
             (DependencyCheck("managed environment", CheckStatus.OK, "ok"),)
+        ),
+    )
+    monkeypatch.setattr(
+        "spotui.cli.check_spotui_browser",
+        lambda: DependencyReport(
+            (DependencyCheck("SpotUI Playwright", CheckStatus.OK, "ok"),)
         ),
     )
 

@@ -11,6 +11,7 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 from spotui.api.v1.errors import ApiError
 from spotui.logging_setup import setup_logging
 from spotui.schemas.errors import ErrorCode
+from tests.api.helpers import assert_problem
 
 
 class CountBody(BaseModel):
@@ -51,20 +52,6 @@ def _build_test_router() -> APIRouter:
 def error_app(app):
     app.include_router(_build_test_router())
     return app
-
-
-def assert_problem(response, status_code: int, code: ErrorCode) -> dict:
-    assert response.status_code == status_code
-    assert response.headers["content-type"] == "application/problem+json"
-    body = response.json()
-    assert body["type"] == f"urn:spotui:error:{code.value}"
-    assert body["status"] == status_code
-    assert body["code"] == code.value
-    assert body["title"]
-    assert body["detail"]
-    assert body["instance"]
-    assert body["request_id"] == response.headers["x-request-id"]
-    return body
 
 
 def test_unknown_route_returns_problem_details(client) -> None:

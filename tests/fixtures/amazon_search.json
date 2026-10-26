@@ -1,0 +1,99 @@
+{
+  "methods": [
+    {
+      "template": {
+        "widgets": [
+          {
+            "title": "Top Results",
+            "items": [
+              {
+                "primaryText": { "text": "Ignored top result" },
+                "secondaryText": "Artist",
+                "primaryLink": { "deeplink": "/artists/B000TOP/ignored" },
+                "image": "https://images.example/top.jpg"
+              }
+            ]
+          },
+          {
+            "title": "Artists",
+            "items": [
+              {
+                "primaryText": { "text": "Arijit Singh" },
+                "secondaryText": "Artist",
+                "primaryLink": { "deeplink": "/artists/B006ZO8YNU/arijit-singh" },
+                "image": "https://images.example/arijit.jpg"
+              },
+              {
+                "primaryText": { "text": "Arijit Singh duplicate" },
+                "secondaryText": "Artist",
+                "primaryLink": { "deeplink": "/artists/B006ZO8YNU/arijit-singh" },
+                "image": "https://images.example/arijit.jpg"
+              }
+            ]
+          },
+          {
+            "title": "Albums",
+            "items": [
+              {
+                "primaryText": { "text": "Aashiqui 2" },
+                "secondaryText": "Arijit Singh, Jeet Gannguli",
+                "primaryLink": { "deeplink": "/albums/B001ALBUM" },
+                "image": "https://images.example/aashiqui.jpg"
+              },
+              {
+                "primaryText": { "text": "Wrong kind in albums" },
+                "secondaryText": "Artist",
+                "primaryLink": { "deeplink": "/artists/B000WRONG/artist" },
+                "image": "https://images.example/wrong.jpg"
+              }
+            ]
+          },
+          {
+            "title": "Songs",
+            "items": [
+              {
+                "primaryText": { "text": "Tum Hi Ho" },
+                "secondaryText": "Arijit Singh",
+                "primaryLink": { "deeplink": "/albums/B001ALBUM?trackAsin=B002TRACK" },
+                "image": "https://images.example/tum.jpg"
+              }
+            ]
+          },
+          {
+            "title": "Playlists",
+            "items": [
+              {
+                "primaryText": { "text": "Evening Chill" },
+                "secondaryText": "Amazon Music playlist",
+                "primaryLink": { "deeplink": "/playlists/B003PLAYLIST" },
+                "image": "https://images.example/chill.jpg"
+              }
+            ]
+          },
+          {
+            "title": "Community Playlists",
+            "items": [
+              {
+                "primaryText": { "text": "My Public List" },
+                "secondaryText": "Community playlist",
+                "primaryLink": { "deeplink": "/user-playlists/B004COMMUNITY" },
+                "image": "https://images.example/community.jpg"
+              }
+            ]
+          },
+          {
+            "title": "Stations",
+            "items": [
+              {
+                "primaryText": { "text": "Ignore station" },
+                "secondaryText": "Station",
+                "primaryLink": { "deeplink": "/stations/B005STATION" },
+                "image": "https://images.example/station.jpg"
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ]
+}

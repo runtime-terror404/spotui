@@ -7,10 +7,12 @@ commands only.
 
 from __future__ import annotations
 
+import importlib.metadata as metadata
 import os
 import re
 import shutil
 import subprocess
+import sys
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from enum import StrEnum
@@ -193,7 +195,12 @@ def check_downloader(paths: Paths, *, runner: Runner = subprocess.run) -> Depend
         )
 
     if playwright_ok:
-        _check_browser_artifacts(paths, runner, checks)
+        _check_browser_artifacts(
+            paths.lucidadl_python,
+            runner,
+            checks,
+            name="Chromium browser",
+        )
 
     try:
         config_result = _run(runner, [str(paths.lucidadl_executable), "config"])
@@ -243,13 +250,17 @@ def check_downloader(paths: Paths, *, runner: Runner = subprocess.run) -> Depend
 
 
 def _check_browser_artifacts(
-    paths: Paths, runner: Runner, checks: list[DependencyCheck]
+    python_executable: Path,
+    runner: Runner,
+    checks: list[DependencyCheck],
+    *,
+    name: str,
 ) -> None:
     try:
         result = _run(
             runner,
             [
-                str(paths.lucidadl_python),
+                str(python_executable),
                 "-m",
                 "playwright",
                 "install",
@@ -261,7 +272,7 @@ def _check_browser_artifacts(
     except (OSError, subprocess.SubprocessError) as exc:
         checks.append(
             DependencyCheck(
-                "Chromium browser",
+                name,
                 CheckStatus.FAIL,
                 redact_text(str(exc))[:200],
                 "run 'spotui deps install'",
@@ -271,7 +282,7 @@ def _check_browser_artifacts(
     if result.returncode != 0:
         checks.append(
             DependencyCheck(
-                "Chromium browser",
+                name,
                 CheckStatus.FAIL,
                 _failure_detail(result),
                 "run 'spotui deps install'",
@@ -286,7 +297,7 @@ def _check_browser_artifacts(
     if not locations:
         checks.append(
             DependencyCheck(
-                "Chromium browser",
+                name,
                 CheckStatus.WARNING,
                 "Playwright did not report browser install locations",
                 "run 'spotui deps install'",
@@ -297,7 +308,7 @@ def _check_browser_artifacts(
     if missing:
         checks.append(
             DependencyCheck(
-                "Chromium browser",
+                name,
                 CheckStatus.FAIL,
                 f"missing browser artifact(s): {', '.join(str(path) for path in missing)}",
                 "run 'spotui deps install'",
@@ -306,10 +317,67 @@ def _check_browser_artifacts(
     else:
         checks.append(
             DependencyCheck(
-                "Chromium browser",
+                name,
                 CheckStatus.OK,
                 f"{len(locations)} Playwright artifact(s) present",
             )
+        )
+
+
+def check_spotui_browser(
+    *,
+    runner: Runner = subprocess.run,
+    python_executable: Path | None = None,
+) -> DependencyReport:
+    """Check the Playwright runtime used by SpotUI's Amazon adapter."""
+    python = python_executable or Path(sys.executable)
+    try:
+        version = metadata.version("playwright")
+    except metadata.PackageNotFoundError:
+        return DependencyReport(
+            (
+                DependencyCheck(
+                    "SpotUI Playwright",
+                    CheckStatus.FAIL,
+                    "Playwright is not installed in the SpotUI environment",
+                    "run 'uv sync' in the SpotUI checkout",
+                ),
+            )
+        )
+    checks = [
+        DependencyCheck("SpotUI Playwright", CheckStatus.OK, version),
+    ]
+    _check_browser_artifacts(
+        python,
+        runner,
+        checks,
+        name="SpotUI Chromium",
+    )
+    return DependencyReport(tuple(checks))
+
+
+def spotui_browser_install_command(
+    python_executable: Path | None = None,
+) -> list[str]:
+    python = python_executable or Path(sys.executable)
+    return [str(python), "-m", "playwright", "install", "chromium"]
+
+
+def install_spotui_browser(
+    *,
+    python_executable: Path | None = None,
+    runner: Runner = subprocess.run,
+) -> None:
+    command = spotui_browser_install_command(python_executable)
+    try:
+        result = runner(command)
+    except (OSError, subprocess.SubprocessError) as exc:
+        raise DependencyError(
+            f"SpotUI browser installation failed: {redact_text(str(exc))[:200]}"
+        ) from exc
+    if result.returncode != 0:
+        raise DependencyError(
+            f"SpotUI browser installation failed with status {result.returncode}"
         )
 
 
@@ -387,8 +455,11 @@ __all__ = [
     "Runner",
     "SUPPORTED_LUCIDADL_VERSION",
     "check_downloader",
+    "check_spotui_browser",
     "find_uv",
     "install_commands",
     "install_downloader",
+    "install_spotui_browser",
     "report_lines",
+    "spotui_browser_install_command",
 ]

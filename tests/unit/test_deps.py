@@ -219,3 +219,91 @@ def test_install_downloader_requires_uv(env, monkeypatch) -> None:
 
     with pytest.raises(DependencyError, match="uv"):
         install_downloader(env.paths, runner=FakeRunner({}))
+
+
+def test_spotui_browser_check_ok(tmp_path, monkeypatch) -> None:
+    import spotui.deps as deps
+
+    browser = tmp_path / "chromium-1234"
+    browser.mkdir()
+    monkeypatch.setattr(deps.metadata, "version", lambda name: "1.64.1")
+
+    def runner(command: list[str], **kwargs: Any) -> subprocess.CompletedProcess[str]:
+        return subprocess.CompletedProcess(
+            command, 0, f"Install location:    {browser}\n", ""
+        )
+
+    report = deps.check_spotui_browser(
+        python_executable=tmp_path / "python",
+        runner=runner,
+    )
+
+    assert report.ok is True
+    assert [check.name for check in report.checks] == [
+        "SpotUI Playwright",
+        "SpotUI Chromium",
+    ]
+    assert all(check.status is CheckStatus.OK for check in report.checks)
+
+
+def test_spotui_browser_missing_package(monkeypatch) -> None:
+    import spotui.deps as deps
+
+    def missing(name: str):
+        raise deps.metadata.PackageNotFoundError(name)
+
+    monkeypatch.setattr(deps.metadata, "version", missing)
+
+    report = deps.check_spotui_browser(runner=FakeRunner({}))
+
+    assert report.ok is False
+    assert report.checks[0].name == "SpotUI Playwright"
+    assert "uv sync" in (report.checks[0].remedy or "")
+
+
+def test_spotui_browser_missing_artifact(tmp_path, monkeypatch) -> None:
+    import spotui.deps as deps
+
+    monkeypatch.setattr(deps.metadata, "version", lambda name: "1.64.1")
+    missing = tmp_path / "chromium-missing"
+
+    def runner(command: list[str], **kwargs: Any) -> subprocess.CompletedProcess[str]:
+        return subprocess.CompletedProcess(
+            command, 0, f"Install location:    {missing}\n", ""
+        )
+
+    report = deps.check_spotui_browser(
+        python_executable=tmp_path / "python",
+        runner=runner,
+    )
+
+    assert report.ok is False
+    assert report.checks[1].name == "SpotUI Chromium"
+    assert report.checks[1].status is CheckStatus.FAIL
+
+
+def test_spotui_browser_install_runs_or_raises(tmp_path) -> None:
+    from spotui.deps import (
+        DependencyError,
+        install_spotui_browser,
+        spotui_browser_install_command,
+    )
+
+    python = tmp_path / "python"
+    command = spotui_browser_install_command(python)
+    assert command == [str(python), "-m", "playwright", "install", "chromium"]
+
+    calls: list[list[str]] = []
+
+    def ok(command: list[str], **kwargs: Any) -> subprocess.CompletedProcess[str]:
+        calls.append(command)
+        return subprocess.CompletedProcess(command, 0, "", "")
+
+    install_spotui_browser(python_executable=python, runner=ok)
+    assert calls == [command]
+
+    def failed(command: list[str], **kwargs: Any) -> subprocess.CompletedProcess[str]:
+        return subprocess.CompletedProcess(command, 1, "", "failed")
+
+    with pytest.raises(DependencyError, match="status 1"):
+        install_spotui_browser(python_executable=python, runner=failed)

@@ -1,0 +1,1 @@
+"""Amazon Music catalog adapter."""

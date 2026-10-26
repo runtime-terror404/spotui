@@ -12,6 +12,14 @@ from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from spotui.api.middleware import get_request_id
+from spotui.domain.amazon import AmazonUrlError
+from spotui.domain.errors import (
+    CatalogError,
+    CatalogResponseError,
+    CatalogTimeoutError,
+    CatalogUnavailableError,
+    InvalidSearchQueryError,
+)
 from spotui.logging_setup import log_context
 from spotui.schemas.errors import ErrorCode, FieldIssue, ProblemDetails
 
@@ -153,6 +161,93 @@ async def http_exception_handler(
     )
 
 
+def _catalog_failure(
+    request: Request,
+    exc: CatalogError,
+    *,
+    status_code: int,
+    code: ErrorCode,
+    title: str,
+) -> JSONResponse:
+    with log_context(request_id=get_request_id(request)):
+        logger.warning("%s: %s", title, exc)
+    return problem_response(
+        request,
+        status_code=status_code,
+        code=code,
+        title=title,
+        detail=str(exc) or title,
+    )
+
+
+async def amazon_url_error_handler(request: Request, exc: AmazonUrlError) -> JSONResponse:
+    return problem_response(
+        request,
+        status_code=400,
+        code=ErrorCode.INVALID_URL,
+        title="Invalid Amazon Music URL",
+        detail=str(exc),
+    )
+
+
+async def invalid_search_query_handler(
+    request: Request, exc: InvalidSearchQueryError
+) -> JSONResponse:
+    return problem_response(
+        request,
+        status_code=422,
+        code=ErrorCode.VALIDATION_ERROR,
+        title="Invalid search query",
+        detail=str(exc),
+    )
+
+
+async def catalog_unavailable_handler(
+    request: Request, exc: CatalogUnavailableError
+) -> JSONResponse:
+    return _catalog_failure(
+        request,
+        exc,
+        status_code=503,
+        code=ErrorCode.AMAZON_UNAVAILABLE,
+        title="Amazon Music unavailable",
+    )
+
+
+async def catalog_timeout_handler(
+    request: Request, exc: CatalogTimeoutError
+) -> JSONResponse:
+    return _catalog_failure(
+        request,
+        exc,
+        status_code=504,
+        code=ErrorCode.AMAZON_TIMEOUT,
+        title="Amazon Music timed out",
+    )
+
+
+async def catalog_response_handler(
+    request: Request, exc: CatalogResponseError
+) -> JSONResponse:
+    return _catalog_failure(
+        request,
+        exc,
+        status_code=502,
+        code=ErrorCode.AMAZON_SEARCH_FAILED,
+        title="Amazon Music request failed",
+    )
+
+
+async def catalog_error_handler(request: Request, exc: CatalogError) -> JSONResponse:
+    return _catalog_failure(
+        request,
+        exc,
+        status_code=502,
+        code=ErrorCode.AMAZON_SEARCH_FAILED,
+        title="Amazon Music request failed",
+    )
+
+
 async def unhandled_exception_handler(request: Request, exc: Exception) -> JSONResponse:
     request_id = get_request_id(request)
     with log_context(request_id=request_id):
@@ -176,4 +271,10 @@ def install_error_handlers(app: FastAPI) -> None:
     app.add_exception_handler(ApiError, api_error_handler)
     app.add_exception_handler(RequestValidationError, validation_error_handler)
     app.add_exception_handler(StarletteHTTPException, http_exception_handler)
+    app.add_exception_handler(AmazonUrlError, amazon_url_error_handler)
+    app.add_exception_handler(InvalidSearchQueryError, invalid_search_query_handler)
+    app.add_exception_handler(CatalogUnavailableError, catalog_unavailable_handler)
+    app.add_exception_handler(CatalogTimeoutError, catalog_timeout_handler)
+    app.add_exception_handler(CatalogResponseError, catalog_response_handler)
+    app.add_exception_handler(CatalogError, catalog_error_handler)
     app.add_exception_handler(Exception, unhandled_exception_handler)

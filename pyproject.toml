@@ -13,6 +13,7 @@ authors = [{ name = "SpotUI contributors" }]
 dependencies = [
     "alembic>=1.13",
     "fastapi>=0.115",
+    "playwright>=1.40",
     "pydantic>=2.8",
     "sqlalchemy>=2.0.30",
     "uvicorn>=0.30",
@@ -27,6 +28,10 @@ dev = [
 
 [project.scripts]
 spotui = "spotui.cli:main"
+
+[tool.hatch.build]
+# Vite assets are generated and gitignored, but must ship in wheel and sdist.
+artifacts = ["src/spotui/web/dist/**"]
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/spotui"]

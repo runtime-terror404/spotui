@@ -11,44 +11,65 @@ reference and is never imported by the new package.
 
 ## Current status
 
-**Phases 1–2: foundation and API base.** The package, configuration, logging,
-process lock, SQLite/Alembic setup, FastAPI lifecycle, dual-listener
-foundation, versioned API, RFC 9457 error contract, placeholder frontend, and
-management CLI are in place. Search, details, queue processing, imports, and
-the React UI are not implemented yet. The baseline audit and Phase 1
-verification evidence are recorded in
+**Phases 1–3: foundation, API base, search, and entity details.** The package,
+configuration, logging, process lock, SQLite/Alembic setup, FastAPI lifecycle,
+dual-listener foundation, versioned API, RFC 9457 error contract, Amazon
+browser/resolver adapters, and the React search/detail interface are in place.
+Download queueing, imports, Now Playing, settings, and pairing remain for later
+phases. The baseline audit and verification evidence are recorded in
 [`docs/baseline-audit.md`](docs/baseline-audit.md).
 
 ## Requirements
 
 - Linux (Arch Linux or Ubuntu 22.04 LTS and newer)
 - [`uv`](https://docs.astral.sh/uv/)
-- For downloads, a managed or existing `lucidadl` installation and its
-  Cloudflare setup (`lucida setup`)
+- Playwright Chromium for SpotUI's Amazon adapter (`spotui deps check`)
+- For album/editorial-playlist details and downloads, the managed `lucidadl`
+  environment plus its Cloudflare setup (`lucida setup`)
 
 SpotUI itself runs from a uv-managed environment. It never modifies system
 Python. `lucidadl` is managed in a separate environment under the SpotUI data
-directory.
+directory; album/editorial-playlist resolution calls it through a packaged
+subprocess bridge. Node.js is needed only to build the frontend, not to run the
+installed application.
 
 ## Development quick start
 
 ```bash
 uv sync --all-groups
+(cd frontend && npm ci && npm run build)
 uv run spotui db upgrade
 uv run spotui serve
 ```
 
-Then open <http://127.0.0.1:8765/>. The default listener is loopback-only. A
-LAN listener is added only after `server.trusted_subnet` is configured and a
-matching active IPv4 interface exists; SpotUI never binds `0.0.0.0`.
+Then open <http://127.0.0.1:8765/>. If `src/spotui/web/dist/` has not been
+built, the server serves the packaged placeholder instead. The default listener
+is loopback-only. A LAN listener is added only after `server.trusted_subnet` is
+configured and a matching active IPv4 interface exists; SpotUI never binds
+`0.0.0.0`.
+
+For frontend iteration, run the backend on port 8765 and `npm run dev` in
+`frontend/`; Vite proxies `/api` to the backend.
 
 ```bash
 uv run spotui status            # effective paths, URLs, lock and health state
 uv run spotui db current        # applied migration revision
-uv run spotui deps check        # managed lucidadl environment and browser status
+uv run spotui deps check        # SpotUI browser plus managed lucidadl status
+uv run spotui deps install      # explicit install/reconcile of pinned dependencies
 uv run pytest
 uv run ruff check .
+(cd frontend && npm test && npm run typecheck && npm run build)
 ```
+
+API routes:
+
+```text
+GET /api/v1/health
+GET /api/v1/search?q=...
+GET /api/v1/entities/detail?url=...
+```
+
+Interactive OpenAPI documentation is available at `/docs` in development.
 
 ## Configuration
 
@@ -94,6 +115,12 @@ configured in `lucidadl`; SpotUI does not move or modify existing media.
   `request_id` extensions; request IDs also appear in redacted logs.
 - Services own use cases; provider adapters wrap Amazon, Spotify, the
   downloader, MPRIS, and audio tags.
+- Amazon search, artist, and community-playlist reads use one serialized
+  Playwright browser thread. Album/editorial-playlist detail uses the managed
+  `lucidadl` environment through a JSON subprocess bridge.
+- The frontend is React + TypeScript + Vite with TanStack Query for server
+  state and Zustand for client-only view state. The production build writes to
+  `src/spotui/web/dist/` and is bundled into the wheel/sdist.
 - SQLAlchemy/Alembic owns persistence; Pydantic schemas are separate.
 - One in-process download worker will own the only downloader subprocess.
 - REST and SQLite are authoritative; SSE will publish live updates later.
