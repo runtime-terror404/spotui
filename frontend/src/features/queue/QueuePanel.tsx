@@ -1,18 +1,39 @@
+import { useEffect, useState } from "react";
+
 import { errorMessage } from "../../api/errors";
 import { QueueIcon } from "../../components/icons";
 import { Button } from "../../components/ui/Button";
 import { useUIStore } from "../../state/uiStore";
 import { QueueJobRow } from "./QueueJobRow";
-import { useCancelJob, useQueue, useRetryJob } from "./hooks";
+import {
+  COMPACT_COMPLETED_HOLD_SECONDS,
+  compactQueueJobs,
+} from "./format";
+import { useCancelJob, useDismissJob, useQueue, useRetryJob } from "./hooks";
 
 export function QueuePanel() {
   const queue = useQueue();
   const cancel = useCancelJob();
   const retry = useRetryJob();
+  const dismiss = useDismissJob();
   const openQueue = useUIStore((state) => state.openQueue);
   const counts = queue.data?.counts;
-  const jobs = queue.data?.jobs.slice(0, 6) ?? [];
-  const busy = cancel.isPending || retry.isPending;
+  const allJobs = queue.data?.jobs ?? [];
+  const [holdClock, setHoldClock] = useState(() => Date.now());
+  const holdCutoff = holdClock / 1000 - COMPACT_COMPLETED_HOLD_SECONDS;
+  const hasRecentCompleted = allJobs.some(
+    (job) =>
+      job.state === "completed" && (job.completed_at ?? job.updated_at) > holdCutoff,
+  );
+  useEffect(() => {
+    if (!hasRecentCompleted) {
+      return;
+    }
+    const timer = window.setInterval(() => setHoldClock(Date.now()), 500);
+    return () => window.clearInterval(timer);
+  }, [hasRecentCompleted]);
+  const jobs = compactQueueJobs(allJobs, holdClock / 1000).slice(0, 6);
+  const busy = cancel.isPending || retry.isPending || dismiss.isPending;
 
   return (
     <aside className="queue-panel" aria-label="Download queue">
@@ -46,7 +67,7 @@ export function QueuePanel() {
       {!queue.isError && !queue.isPending && jobs.length === 0 ? (
         <div className="queue-panel__empty">
           <QueueIcon />
-          <p>No downloads queued.</p>
+          <p>No active downloads.</p>
         </div>
       ) : null}
 
@@ -60,6 +81,7 @@ export function QueuePanel() {
               busy={busy}
               onCancel={(item) => cancel.mutate(item.id)}
               onRetry={(item) => retry.mutate(item.id)}
+              onDismiss={(item) => dismiss.mutate(item)}
             />
           ))}
         </div>

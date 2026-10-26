@@ -33,6 +33,7 @@ _UNAUTHENTICATED_PATHS = frozenset(
     {
         "/",
         "/favicon.ico",
+        "/favicon.png",
         "/api/v1/auth/status",
         "/api/v1/auth/pair",
         "/api/v1/health",

@@ -103,7 +103,46 @@ print("Done — OK:1  skipped:0  failed:0", flush=True)
     assert not watchlist.exists()
 
 
-def test_skipped_track_is_completed(tmp_path: Path) -> None:
+def test_already_downloaded_skip_is_completed(tmp_path: Path) -> None:
+    executable = write_script(
+        tmp_path,
+        "lucida",
+        """
+print("  ⏭ already downloaded / in progress, skipped: Song", flush=True)
+print("Done — OK:0  skipped:1  failed:0", flush=True)
+""",
+    )
+
+    result = LucidadlDownloader(executable).run(
+        "https://music.amazon.com/tracks/B002TRACK1",
+        lambda phase: None,
+    )
+
+    assert result.outcome is DownloadOutcome.COMPLETED
+    assert result.message == "already in library"
+    assert result.output_path is None
+
+
+def test_not_found_skip_is_failed(tmp_path: Path) -> None:
+    executable = write_script(
+        tmp_path,
+        "lucida",
+        """
+print("  ⃠ not found, skipped: https://music.amazon.com/tracks/B002TRACK1", flush=True)
+print("Done — OK:0  skipped:1  failed:0", flush=True)
+""",
+    )
+
+    result = LucidadlDownloader(executable).run(
+        "https://music.amazon.com/tracks/B002TRACK1",
+        lambda phase: None,
+    )
+
+    assert result.outcome is DownloadOutcome.FAILED
+    assert "could not find a downloadable track" in (result.error or "")
+
+
+def test_unexplained_skip_is_failed(tmp_path: Path) -> None:
     executable = write_script(
         tmp_path,
         "lucida",
@@ -117,8 +156,8 @@ print("Done — OK:0  skipped:1  failed:0", flush=True)
         lambda phase: None,
     )
 
-    assert result.outcome is DownloadOutcome.COMPLETED
-    assert result.message == "already in library"
+    assert result.outcome is DownloadOutcome.FAILED
+    assert "without confirming an existing download" in (result.error or "")
 
 
 @pytest.mark.parametrize(

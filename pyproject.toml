@@ -47,6 +47,8 @@ packages = ["src/spotui"]
 include = [
     "alembic.ini",
     "docs",
+    "frontend/package.json",
+    "frontend/package-lock.json",
     "scripts",
     "src/spotui",
     "tests",

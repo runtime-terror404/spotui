@@ -12,13 +12,17 @@ usage() {
 Usage: uninstall.sh [options]
 
 Removes the managed SpotUI environment, launcher, and optional systemd user
-unit. Configuration, database, logs, caches, the lucidadl environment, and all
-music remain in place unless --purge-data is used.
+unit. The complete SpotUI root, including configuration, database, logs,
+cache, and the lucidadl environment, remains in place unless --purge-data is
+used. Music outside the root is never touched.
 
 Options:
-  --purge-data   Also remove SpotUI configuration, database, logs, and caches
+  --purge-data   Also remove the complete SpotUI root and old scattered dirs
   --yes          Skip the destructive purge confirmation prompt
   -h, --help     Show this help
+
+Environment:
+  SPOTUI_HOME    Absolute root used by the installation
 EOF
 }
 
@@ -53,25 +57,27 @@ if [[ "$(id -u)" -eq 0 ]]; then
     exit 1
 fi
 
-DATA_HOME="${XDG_DATA_HOME:-$HOME/.local/share}"
+if [[ -n "${SPOTUI_HOME:-}" ]]; then
+    DATA_DIR="$SPOTUI_HOME"
+else
+    DATA_HOME="${XDG_DATA_HOME:-$HOME/.local/share}"
+    DATA_DIR="$DATA_HOME/spotui"
+fi
 STATE_HOME="${XDG_STATE_HOME:-$HOME/.local/state}"
 CACHE_HOME="${XDG_CACHE_HOME:-$HOME/.cache}"
 CONFIG_HOME="${XDG_CONFIG_HOME:-$HOME/.config}"
-DATA_DIR="$DATA_HOME/spotui"
-STATE_DIR="$STATE_HOME/spotui"
-CACHE_DIR="$CACHE_HOME/spotui"
-CONFIG_DIR="$CONFIG_HOME/spotui"
+LEGACY_STATE_DIR="$STATE_HOME/spotui"
+LEGACY_CACHE_DIR="$CACHE_HOME/spotui"
+LEGACY_CONFIG_DIR="$CONFIG_HOME/spotui"
 ENV_DIR="$DATA_DIR/envs/spotui"
 BIN_DIR="${XDG_BIN_HOME:-$HOME/.local/bin}"
 LAUNCHER="$BIN_DIR/spotui"
 UNIT_FILE="$CONFIG_HOME/systemd/user/spotui.service"
 
-for path in "$DATA_DIR" "$STATE_DIR" "$CACHE_DIR" "$CONFIG_DIR"; do
-    if [[ "$path" != /* ]]; then
-        echo "uninstall.sh: refusing non-absolute XDG path: $path" >&2
-        exit 1
-    fi
-done
+if [[ "$DATA_DIR" != /* || "$DATA_DIR" == "/" || "$DATA_DIR" == "$HOME" ]]; then
+    echo "uninstall.sh: refusing unsafe SpotUI root: $DATA_DIR" >&2
+    exit 1
+fi
 
 if [[ -x "$ENV_DIR/bin/spotui" ]]; then
     "$ENV_DIR/bin/spotui" service uninstall || {
@@ -116,30 +122,30 @@ if [[ "$PURGE_DATA" == true ]]; then
             echo "uninstall.sh: --purge-data in a non-interactive session requires --yes" >&2
             exit 1
         fi
-        echo "This permanently deletes SpotUI configuration, the database, logs,"
-        echo "caches, and the managed lucidadl environment. Music is never touched."
+        echo "This permanently deletes the complete SpotUI root at:"
+        echo "  $DATA_DIR"
+        echo "It includes configuration, database, logs, cache, and the managed"
+        echo "lucidadl environment. Music outside the root is never touched."
         read -r -p "Type 'delete' to continue: " answer
         if [[ "$answer" != "delete" ]]; then
             echo "uninstall.sh: purge cancelled; installed code has been removed"
             exit 1
         fi
     fi
-    for path in "$CONFIG_DIR" "$DATA_DIR" "$STATE_DIR" "$CACHE_DIR"; do
-        case "$path" in
-            "$CONFIG_HOME"/*|"$DATA_HOME"/*|"$STATE_HOME"/*|"$CACHE_HOME"/*) ;;
-            *)
-                echo "uninstall.sh: refusing unexpected purge path: $path" >&2
-                exit 1
-                ;;
-        esac
-        rm -rf "$path"
-        echo "Removed: $path"
+    rm -rf "$DATA_DIR"
+    echo "Removed: $DATA_DIR"
+    for path in "$LEGACY_CONFIG_DIR" "$LEGACY_STATE_DIR" "$LEGACY_CACHE_DIR"; do
+        if [[ -d "$path" ]]; then
+            rm -rf "$path"
+            echo "Removed legacy scattered directory: $path"
+        fi
     done
 else
     echo
-    echo "User data was preserved:"
-    echo "  Configuration: $CONFIG_DIR"
+    echo "User data was preserved under:"
+    echo "  $DATA_DIR"
+    echo "  Configuration: $DATA_DIR/config.toml"
     echo "  Database:      $DATA_DIR/spotui.sqlite3"
-    echo "  Logs:          $STATE_DIR/logs"
+    echo "  Logs:          $DATA_DIR/logs"
     echo "To remove it explicitly, rerun with --purge-data."
 fi

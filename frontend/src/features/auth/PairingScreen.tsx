@@ -1,5 +1,6 @@
 import { useId, useState } from "react";
 
+import logoUrl from "../../assets/logo.png";
 import { errorMessage, errorRequestId } from "../../api/errors";
 import type { AuthStatus } from "../../api/types";
 import { Button } from "../../components/ui/Button";
@@ -17,7 +18,7 @@ export function PairingScreen({ status }: { status: AuthStatus }) {
     <main className="pairing-screen">
       <section className="pairing-card" aria-labelledby="pairing-title">
         <div className="pairing-card__brand" aria-hidden="true">
-          S
+          <img className="brand-mark" src={logoUrl} alt="" />
         </div>
         <p className="eyebrow">Trusted home network</p>
         <h1 id="pairing-title">Pair this browser</h1>

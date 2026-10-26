@@ -3,6 +3,7 @@ from __future__ import annotations
 import os
 import subprocess
 from collections.abc import Sequence
+from dataclasses import replace
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -70,8 +71,7 @@ def test_install_is_idempotent_and_does_not_enable(env) -> None:
 
     assert first == second == env.paths.systemd_unit_file
     assert second.read_text(encoding="utf-8") == contents
-    assert f'Environment="XDG_DATA_HOME={env.data_home}"' in contents
-    assert f'Environment="XDG_STATE_HOME={env.state_home}"' in contents
+    assert f'Environment="SPOTUI_HOME={env.paths.data_dir}"' in contents
     assert calls == [
         ["systemctl", "--user", "daemon-reload"],
         ["systemctl", "--user", "daemon-reload"],
@@ -79,17 +79,26 @@ def test_install_is_idempotent_and_does_not_enable(env) -> None:
     assert os.stat(second).st_mode & 0o777 == 0o644
 
 
-def test_service_environment_pins_an_existing_config(env) -> None:
+def test_service_environment_pins_the_root_and_default_config(env) -> None:
     env.paths.config_file.parent.mkdir(parents=True, exist_ok=True)
     env.paths.config_file.write_text("", encoding="utf-8")
 
     environment = service_environment(env.paths)
 
-    assert environment["SPOTUI_CONFIG"] == str(env.paths.config_file)
-    assert environment["XDG_CONFIG_HOME"] == str(env.config_home)
-    assert environment["XDG_DATA_HOME"] == str(env.data_home)
-    assert environment["XDG_STATE_HOME"] == str(env.state_home)
-    assert environment["XDG_CACHE_HOME"] == str(env.cache_home)
+    assert environment == {"SPOTUI_HOME": str(env.paths.data_dir)}
+
+
+def test_service_environment_pins_a_custom_config_path(env) -> None:
+    custom = env.root / "custom-spotui.toml"
+    custom.write_text("", encoding="utf-8")
+    paths = replace(env.paths, config_file=custom)
+
+    environment = service_environment(paths)
+
+    assert environment == {
+        "SPOTUI_HOME": str(paths.data_dir),
+        "SPOTUI_CONFIG": str(custom),
+    }
 
 
 def test_enable_disable_and_status_use_user_systemctl(env) -> None:

@@ -419,22 +419,90 @@ application and automation layers:
   tag/artifact names, generates `SHA256SUMS`, and creates the GitHub release.
   These workflows are authored but have not run on GitHub from this local
   checkout; no release was published.
+- Local-testing adjustment: successful HTTP access logs now emit at `DEBUG`;
+  slow requests over two seconds and server errors remain visible at
+  `INFO`/`ERROR`. The Now Playing header control is an icon-only button that
+  reads MPRIS only when clicked, so it never retains a stale track label. The
+  compact queue panel removes completed jobs three seconds after completion
+  while the Queue page retains history; idle queue polling backs off from 1.5
+  seconds to 10 seconds. This avoids console/log-file noise and side-panel
+  clutter without hiding failures or active queue updates.
+- The supplied visual redesign was applied after preserving the previous
+  frontend as the gitignored `frontend_0.1.0/` directory. The redesign adds the
+  brand mark, favicon, brand styling layer, and refreshed navigation, search,
+  and pairing surfaces. The FastAPI shell serves `/favicon.png`, including for
+  unpaired LAN browsers. Desktop and mobile renders were exercised with
+  Playwright: no console errors, no horizontal overflow, and all images loaded.
+- The second redesign iteration was re-applied as the active frontend after the
+  first redesign was retained as the gitignored `frontend_0.1.1/` directory
+  alongside the original `frontend_0.1.0/`. The active version includes the
+  aurora background, floating chrome, immersive detail hero, and animated home
+  screen mark. It was re-rendered at desktop and mobile widths with no console
+  errors or horizontal overflow.
+- Live Amazon checks exposed and fixed two detail-view defects:
+  `lucidadl` returns album/playlist cover artwork as a size-ladder list, which
+  the parser previously dropped; it now selects a moderate image for the hero
+  and track thumbnails. The artwork fallback also used percentage padding that
+  expanded 46 px track thumbnails to roughly 400 px when an image was missing;
+  fallback sizing is now contained and icon-scaled. A live album (10 tracks) and
+  editorial playlist (100 tracks) both rendered covers and compact 67 px rows,
+  with a synthetic missing-image check also confirming 46 px fallbacks and the
+  232 px hero. The same fixes were re-applied to the active second redesign.
+- Public community playlists were also fixed: the browser adapter now captures
+  the `music-detail-header` cover and each row's album artwork. A live public
+  playlist (24 tracks) rendered its playlist cover and per-track covers at
+  46×46 px with compact rows and no overflow.
+- UI refinements: the desktop search field fills the header up to the icon-only
+  Now Playing button; queue rows outside the Active section use a compact
+  `title | artist` summary with icon-only state, retain completed filenames, and
+  remove redundant text labels. Settings now includes a persisted
+  System/Light/Dark theme, read-only download folder and application root,
+  indexed library count, completed-download count, and library-root status.
+  Read-only values come from the new `/api/v1/system/info` endpoint and existing
+  queue/library APIs. Live renders confirmed the 16 px header gap, compact
+  50–62 px non-active rows versus the full Active row, and working light/dark
+  theme application.
+- Downloader skip classification was corrected after a live queue report:
+  `lucidadl` counts both dedup hits and unresolved items as "skipped". SpotUI
+  previously marked every skip as completed, so a track that Amazon could not
+  resolve appeared in History as "already in library" without a filename.
+  Only an explicit "already downloaded / in progress" skip is now completed;
+  not-found and unexplained skips fail with an actionable error and can be
+  retried.
+- Queue cleanup behavior was refined: the X action cancels an active download,
+  deletes a waiting job before it can enter history, and dismisses a
+  failed/interrupted job without retrying. Waiting removals use an optimistic
+  client update so the compact panel drops them immediately, and cancelled jobs
+  are excluded from the panel and History. History renders only the latest 50
+  completed rows while the Completed aggregate continues to count every job.
+  The new `DELETE /api/v1/queue/jobs/{id}` route accepts waiting, failed,
+  interrupted, or cancelled jobs, rejects active jobs, and relies on the
+  existing cascade to remove attempts.
+- Application-owned paths are consolidated under one root
+  (`~/.local/share/spotui` by default, relocatable with `SPOTUI_HOME`):
+  configuration, database/WAL, backups, logs, cache, lock, legacy queue, and
+  both managed environments. Only the optional PATH launcher and systemd user
+  unit remain at their OS-required locations. The installer and uninstaller honor
+  the same root; `--purge-data` also removes leftovers from the earlier scattered
+  XDG layout.
 
-Final checks: 410 backend tests and 31 frontend tests pass; `ruff`, the
+Final checks: 430 backend tests and 45 frontend tests pass; `ruff`, the
 TypeScript typecheck, `uv lock --check`, and the Vite production build are
-clean. `uv build` produced `spotui-0.1.0-py3-none-any.whl`
-(`e5b478ed81ea304d3fd048d74d63aeb53a4e1e6da3c3563573d0462057101ba3`) and
-`spotui-0.1.0.tar.gz`
-(`0bc2f2b084f461e46bc43f71721790ddd3ab2c2ccd614f0142e71b37333cc4f6`);
-both contain the generated frontend and the sdist contains both installer
-scripts. All 410 tests also pass from the wheel installed in a clean Python
-3.11 environment. That installed wheel migrated a fresh database, produced a
-verified backup, generated a valid systemd unit with pinned XDG roots, imported
-a sample legacy queue in dry-run and confirmed modes, reran without duplicates,
-left the source file hash unchanged, served the packaged UI and asset, and shut
-down cleanly. The real installer was run twice against the built wheel with a
-real uv environment: the second run was idempotent and preserved data; uninstall
-removed only code and the launcher.
+clean. Local `uv build` produced the wheel and sdist; both contain the generated
+frontend, and the sdist contains both installer scripts plus the frontend
+version manifests needed to run its packaged tests. The release workflow
+generates the authoritative `SHA256SUMS` for published artifacts. All 430
+backend tests also pass from the wheel installed in a clean Python 3.11
+environment. That
+installed wheel migrated a fresh database, produced a verified backup, generated
+a valid systemd unit with the pinned application root, imported a sample legacy
+queue in dry-run and confirmed modes, reran without duplicates, left the source
+file hash unchanged, served the packaged UI and asset, and shut down cleanly. A
+clean-root smoke test confirmed all generated files (config, database, backup,
+logs, cache, and run lock) stayed inside `SPOTUI_HOME` and that default-`INFO`
+health/queue requests produced no access-log spam. The real installer was run
+twice against the built wheel with a real uv environment: the second run was
+idempotent and preserved data; uninstall removed only code and the launcher.
 
 Not exercised here: an actual GitHub Actions run or tagged release publication,
 live release-asset download (the checksum path is shell-tested with fixtures),

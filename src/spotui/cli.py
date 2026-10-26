@@ -223,9 +223,12 @@ def _cmd_status(args: argparse.Namespace) -> int:
     print(f"SpotUI {__version__}")
     config_state = "" if paths.config_file.exists() else " (missing; using defaults)"
     print(f"Config: {paths.config_file}{config_state}")
-    print(f"Data: {paths.data_dir}")
+    print(f"Root: {paths.data_dir}")
     print(f"Database: {paths.database_file}")
+    print(f"Backups: {paths.backup_dir}")
     print(f"Logs: {paths.log_file}")
+    print(f"Cache: {paths.cache_dir}")
+    print(f"Lock: {paths.lock_file}")
     launcher_missing = "" if paths.launcher_file.exists() else " (not installed)"
     unit_missing = "" if paths.systemd_unit_file.exists() else " (not installed)"
     print(f"Launcher: {paths.launcher_file}{launcher_missing}")

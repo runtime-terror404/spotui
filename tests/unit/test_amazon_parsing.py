@@ -86,6 +86,7 @@ def test_community_playlist_rows_keep_playlist_order_and_dedupe() -> None:
             "title": "Second",
             "artist": "Artist B",
             "href": "/albums/B002?trackAsin=B002TRACK",
+            "image": "https://images.example/second.jpg",
             "style": "top: 80px",
         },
         {
@@ -93,6 +94,7 @@ def test_community_playlist_rows_keep_playlist_order_and_dedupe() -> None:
             "title": "First",
             "artist": "Artist A",
             "href": "/albums/B001?trackAsin=B001TRACK",
+            "image": "https://images.example/first.jpg",
             "style": "top: 40px",
         },
         {
@@ -100,15 +102,25 @@ def test_community_playlist_rows_keep_playlist_order_and_dedupe() -> None:
             "title": "First duplicate",
             "artist": "Artist A",
             "href": "/albums/B001?trackAsin=B001TRACK",
+            "image": "https://images.example/first.jpg",
             "style": "top: 40px",
         },
     ]
 
-    detail = parse_community_playlist_rows(rows, "My List | Amazon Music")
+    detail = parse_community_playlist_rows(
+        rows,
+        "My List | Amazon Music",
+        "https://images.example/playlist.jpg",
+    )
 
     assert detail.kind is CatalogKind.COMMUNITY_PLAYLIST
     assert detail.title == "My List"
+    assert detail.image == "https://images.example/playlist.jpg"
     assert [track.title for track in detail.tracks] == ["First", "Second"]
+    assert [track.image for track in detail.tracks] == [
+        "https://images.example/first.jpg",
+        "https://images.example/second.jpg",
+    ]
     assert all(track.url.startswith("https://music.amazon.in/") for track in detail.tracks)
 
 
@@ -148,6 +160,50 @@ def test_lucida_normalized_bridge_info_is_supported() -> None:
     assert detail.kind is CatalogKind.PLAYLIST
     assert detail.subtitle == "Various Artists"
     assert detail.tracks[0].artist == "Singer"
+
+
+def test_lucida_cover_size_ladder_selects_a_moderate_image() -> None:
+    detail = parse_lucida_info(
+        {
+            "type": "album",
+            "title": "Pyaar Unlimited",
+            "artist": "Arijit Singh",
+            "cover": [
+                {"url": "https://images.example/thumb.jpg", "width": 100},
+                {"url": "https://images.example/cover.jpg", "width": 500},
+                {"url": "https://images.example/huge.jpg", "width": 2560},
+            ],
+            "tracks": [
+                {
+                    "title": "Thodi Der",
+                    "artist": "Shreya Ghoshal",
+                    "url": "https://music.amazon.com/tracks/B001",
+                }
+            ],
+        }
+    )
+
+    assert detail.image == "https://images.example/cover.jpg"
+    assert detail.tracks[0].image == "https://images.example/cover.jpg"
+
+
+def test_lucida_cover_object_is_supported() -> None:
+    detail = parse_lucida_info(
+        {
+            "type": "playlist",
+            "title": "Evening",
+            "coverArtwork": {"url": "https://images.example/playlist.jpg"},
+            "tracks": [
+                {
+                    "title": "Track",
+                    "artist": "Singer",
+                    "url": "https://music.amazon.com/tracks/B001",
+                }
+            ],
+        }
+    )
+
+    assert detail.image == "https://images.example/playlist.jpg"
 
 
 def test_lucida_info_without_tracks_or_type_is_rejected() -> None:

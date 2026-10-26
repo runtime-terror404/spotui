@@ -4,8 +4,12 @@ import { createRoot } from "react-dom/client";
 
 import { App } from "./app/App";
 import { AuthGate } from "./features/auth/AuthGate";
+import { initializeTheme } from "./state/theme";
 import "./styles/tokens.css";
 import "./styles/app.css";
+import "./styles/brand.css";
+
+initializeTheme();
 
 const queryClient = new QueryClient({
   defaultOptions: {

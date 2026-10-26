@@ -35,7 +35,8 @@ uv build
 
 4. Confirm the wheel and sdist both contain
    `spotui/web/dist/index.html` and the generated asset files, and that the
-   sdist contains `scripts/install.sh`, `scripts/uninstall.sh`, and the tests.
+   sdist contains `scripts/install.sh`, `scripts/uninstall.sh`, the tests, and
+   the frontend version manifests those tests read.
 5. Install the built wheel into a clean environment without Node.js, apply
    migrations, and start the server. Verify the UI and
    `/api/v1/health`.

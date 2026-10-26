@@ -117,6 +117,10 @@ def test_status_reports_effective_state(env, capsys) -> None:
     assert f"SpotUI {__version__}" in output
     assert f"http://127.0.0.1:{port}" in output
     assert "LAN: disabled" in output
+    assert f"Root: {env.paths.data_dir}" in output
+    assert f"Backups: {env.paths.backup_dir}" in output
+    assert f"Logs: {env.paths.log_file}" in output
+    assert f"Cache: {env.paths.cache_dir}" in output
     assert f"Launcher: {env.paths.launcher_file} (not installed)" in output
     assert f"Systemd unit: {env.paths.systemd_unit_file} (not installed)" in output
     assert "Server: not running" in output

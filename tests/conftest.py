@@ -18,37 +18,31 @@ class XdgEnvironment:
     home: Path
     config_home: Path
     data_home: Path
-    state_home: Path
-    cache_home: Path
-    runtime_home: Path
+    bin_home: Path
     paths: Paths
     config: AppConfig
 
 
 @pytest.fixture(autouse=True)
 def isolated_xdg(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> XdgEnvironment:
-    """Give every test an isolated XDG home and deterministic config."""
+    """Give every test an isolated home, data root, and integration paths."""
     home = tmp_path / "home"
     config_home = tmp_path / "config"
     data_home = tmp_path / "data"
-    state_home = tmp_path / "state"
-    cache_home = tmp_path / "cache"
-    runtime_home = tmp_path / "run"
-    for directory in (home, config_home, data_home, state_home, cache_home, runtime_home):
+    bin_home = tmp_path / "bin"
+    for directory in (home, config_home, data_home, bin_home):
         directory.mkdir(parents=True, exist_ok=True)
 
     values = {
         "HOME": str(home),
         "XDG_CONFIG_HOME": str(config_home),
         "XDG_DATA_HOME": str(data_home),
-        "XDG_STATE_HOME": str(state_home),
-        "XDG_CACHE_HOME": str(cache_home),
-        "XDG_RUNTIME_DIR": str(runtime_home),
+        "XDG_BIN_HOME": str(bin_home),
     }
     for key, value in values.items():
         monkeypatch.setenv(key, value)
     for key in (
-        "XDG_BIN_HOME",
+        "SPOTUI_HOME",
         "SPOTUI_CONFIG",
         "SPOTUI_PORT",
         "SPOTUI_TRUSTED_SUBNET",
@@ -74,9 +68,7 @@ def isolated_xdg(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> XdgEnvironm
         home=home,
         config_home=config_home,
         data_home=data_home,
-        state_home=state_home,
-        cache_home=cache_home,
-        runtime_home=runtime_home,
+        bin_home=bin_home,
         paths=paths,
         config=load_config(paths),
     )

@@ -25,6 +25,8 @@ logger = logging.getLogger("spotui.downloader.lucidadl")
 _PHASE_RE = re.compile(r"^\s*…\s+(.+)$")
 _TALLY_RE = re.compile(r"Done\s*[—-]\s*OK:(\d+)\s+skipped:(\d+)\s+failed:(\d+)")
 _OUTPUT_RE = re.compile(r"✓\s+(.+?)\s+\([\d.]+ MB\)")
+_NOT_FOUND_SKIP = "not found, skipped:"
+_ALREADY_DOWNLOADED_SKIP = "already downloaded / in progress, skipped:"
 
 
 class DownloadOutcome(StrEnum):
@@ -138,6 +140,8 @@ class LucidadlDownloader:
         process: subprocess.Popen[str] | None = None
         tally: tuple[int, int, int] | None = None
         output_path: str | None = None
+        saw_not_found_skip = False
+        saw_already_downloaded_skip = False
         try:
             watchlist.write(url + "\n")
             watchlist.close()
@@ -173,6 +177,10 @@ class LucidadlDownloader:
                 parsed_output = parse_output_path(line)
                 if parsed_output is not None:
                     output_path = parsed_output
+                if _NOT_FOUND_SKIP in line:
+                    saw_not_found_skip = True
+                elif _ALREADY_DOWNLOADED_SKIP in line:
+                    saw_already_downloaded_skip = True
 
             returncode = process.wait()
             with self._lock:
@@ -192,18 +200,50 @@ class LucidadlDownloader:
                     exit_code=returncode,
                 )
             ok, skipped, failed = tally
-            if failed == 0 and (ok > 0 or skipped > 0):
-                already = ok == 0 and skipped > 0
+            if failed > 0:
+                return DownloadResult(
+                    DownloadOutcome.FAILED,
+                    "download failed",
+                    error="The downloader reported a failed track.",
+                    exit_code=returncode,
+                )
+            if ok > 0:
                 return DownloadResult(
                     DownloadOutcome.COMPLETED,
-                    "already in library" if already else "saved",
+                    "saved",
                     output_path=output_path,
+                    exit_code=returncode,
+                )
+            if skipped > 0 and saw_not_found_skip and not saw_already_downloaded_skip:
+                return DownloadResult(
+                    DownloadOutcome.FAILED,
+                    "download failed",
+                    error=(
+                        "The downloader could not find a downloadable track "
+                        "at this Amazon URL."
+                    ),
+                    exit_code=returncode,
+                )
+            if skipped > 0 and saw_already_downloaded_skip and not saw_not_found_skip:
+                return DownloadResult(
+                    DownloadOutcome.COMPLETED,
+                    "already in library",
+                    exit_code=returncode,
+                )
+            if skipped > 0:
+                return DownloadResult(
+                    DownloadOutcome.FAILED,
+                    "download failed",
+                    error=(
+                        "The downloader skipped this track without confirming "
+                        "an existing download."
+                    ),
                     exit_code=returncode,
                 )
             return DownloadResult(
                 DownloadOutcome.FAILED,
                 "download failed",
-                error="The downloader reported a failed track.",
+                error="The downloader reported neither a saved nor skipped track.",
                 exit_code=returncode,
             )
         finally:

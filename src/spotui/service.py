@@ -89,14 +89,10 @@ def render_service_unit(
 
 
 def service_environment(paths: Paths) -> dict[str, str]:
-    """Pin the XDG roots used during installation into the user unit."""
-    environment = {
-        "XDG_CONFIG_HOME": str(paths.config_dir.parent),
-        "XDG_DATA_HOME": str(paths.data_dir.parent),
-        "XDG_STATE_HOME": str(paths.state_dir.parent),
-        "XDG_CACHE_HOME": str(paths.cache_dir.parent),
-    }
-    if paths.config_file.is_file():
+    """Pin the installed application root and any non-default config path."""
+    environment = {"SPOTUI_HOME": str(paths.data_dir)}
+    default_config = paths.config_dir / "config.toml"
+    if paths.config_file != default_config and paths.config_file.is_file():
         environment["SPOTUI_CONFIG"] = str(paths.config_file)
     return environment
 

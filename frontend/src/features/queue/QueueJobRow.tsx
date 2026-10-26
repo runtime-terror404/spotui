@@ -1,5 +1,11 @@
 import type { QueueJob } from "../../api/types";
-import { AlertIcon, CheckIcon, ClockIcon, DownloadIcon } from "../../components/icons";
+import {
+  AlertIcon,
+  CheckIcon,
+  ClockIcon,
+  CloseIcon,
+  DownloadIcon,
+} from "../../components/icons";
 import { Button } from "../../components/ui/Button";
 import {
   fileName,
@@ -31,6 +37,7 @@ interface QueueJobRowProps {
   busy?: boolean;
   onCancel?: (job: QueueJob) => void;
   onRetry?: (job: QueueJob) => void;
+  onDismiss?: (job: QueueJob) => void;
 }
 
 export function QueueJobRow({
@@ -39,37 +46,70 @@ export function QueueJobRow({
   busy = false,
   onCancel,
   onRetry,
+  onDismiss,
 }: QueueJobRowProps) {
   const label = jobStatusLabel(job);
   const tone = jobTone(job.state);
   const detail = jobDetail(job);
   const active = isActiveState(job.state);
-  const canCancel = job.state === "queued" || active;
+  const canCancel = active;
   const canRetry = job.state === "failed" || job.state === "interrupted";
+  const canDismiss =
+    job.state === "queued" || job.state === "failed" || job.state === "interrupted";
+  const stackedActions = compact && canRetry && canDismiss;
+  const className = [
+    "queue-job",
+    `queue-job--${tone}`,
+    compact ? "queue-job--compact" : "",
+    active ? "" : "queue-job--condensed",
+    stackedActions ? "queue-job--actions-stacked" : "",
+  ]
+    .filter(Boolean)
+    .join(" ");
 
   return (
-    <article
-      className={`queue-job queue-job--${tone} ${compact ? "queue-job--compact" : ""}`.trim()}
-      aria-label={`${job.title}, ${label}`}
-    >
+    <article className={className} aria-label={`${job.title}, ${label}`}>
       <div className="queue-job__icon" aria-hidden="true">
         <StatusIcon state={job.state} />
       </div>
       <div className="queue-job__body">
         <div className="queue-job__heading">
-          <span className="queue-job__title" title={job.title}>
-            {job.title}
-          </span>
+          {active ? (
+            <span className="queue-job__title" title={job.title}>
+              {job.title}
+            </span>
+          ) : (
+            <span className="queue-job__summary">
+              <span className="queue-job__title" title={job.title}>
+                {job.title}
+              </span>
+              {job.artist ? (
+                <>
+                  <span
+                    className="queue-job__summary-separator"
+                    aria-hidden="true"
+                  >
+                    |
+                  </span>
+                  <span className="queue-job__artist" title={job.artist}>
+                    {job.artist}
+                  </span>
+                </>
+              ) : null}
+            </span>
+          )}
           <span className="queue-job__time">{formatRelative(job.updated_at)}</span>
         </div>
-        {job.artist ? (
+        {active && job.artist ? (
           <span className="queue-job__artist" title={job.artist}>
             {job.artist}
           </span>
         ) : null}
-        <span className={`queue-job__state queue-job__state--${tone}`}>
-          {label}
-        </span>
+        {active ? (
+          <span className={`queue-job__state queue-job__state--${tone}`}>
+            {label}
+          </span>
+        ) : null}
         {active ? (
           <span className="queue-job__progress" aria-hidden="true">
             <span />
@@ -90,17 +130,6 @@ export function QueueJobRow({
         ) : null}
       </div>
       <div className="queue-job__actions">
-        {canCancel && onCancel ? (
-          <Button
-            variant="ghost"
-            className="button--small"
-            disabled={busy || job.state === "cancelling"}
-            onClick={() => onCancel(job)}
-            aria-label={`Cancel download ${job.title}`}
-          >
-            {job.state === "cancelling" ? "Cancelling…" : "Cancel"}
-          </Button>
-        ) : null}
         {canRetry && onRetry ? (
           <Button
             variant="secondary"
@@ -111,6 +140,32 @@ export function QueueJobRow({
           >
             Retry
           </Button>
+        ) : null}
+        {canCancel && onCancel ? (
+          <Button
+            variant="ghost"
+            className="button--small button--icon"
+            disabled={busy || job.state === "cancelling"}
+            onClick={() => onCancel(job)}
+            aria-label={`Cancel download ${job.title}`}
+            title="Cancel download"
+            icon={<CloseIcon />}
+          />
+        ) : null}
+        {canDismiss && onDismiss ? (
+          <Button
+            variant="ghost"
+            className="button--small button--icon"
+            disabled={busy}
+            onClick={() => onDismiss(job)}
+            aria-label={
+              job.state === "queued"
+                ? `Cancel queued download ${job.title}`
+                : `Dismiss failed download ${job.title}`
+            }
+            title="Remove from queue"
+            icon={<CloseIcon />}
+          />
         ) : null}
       </div>
     </article>

@@ -1,0 +1,431 @@
+/* SpotUI brand layer: loaded after app.css. Visual only. */
+
+body {
+  background:
+    radial-gradient(60rem 36rem at 12% -8%, var(--glow-a), transparent 60%),
+    radial-gradient(52rem 32rem at 100% 0%, var(--glow-b), transparent 58%),
+    var(--color-background);
+  background-attachment: fixed;
+}
+
+/* Brand mark */
+.brand-mark {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.nav-rail__brand {
+  width: 48px;
+  height: 48px;
+  padding: 7px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-outline-soft);
+  box-shadow: var(--shadow-card);
+  transition: transform var(--motion-fast) ease, box-shadow var(--motion-fast) ease;
+}
+
+.nav-rail__brand:hover {
+  transform: translateY(-1px) rotate(-3deg);
+  box-shadow: var(--shadow-float);
+}
+
+.mobile-brand {
+  align-items: center;
+  gap: 8px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+.mobile-brand .brand-mark {
+  width: 28px;
+  height: 28px;
+}
+
+/* Navigation */
+.nav-rail {
+  background: color-mix(in srgb, var(--color-surface-low) 88%, transparent);
+}
+
+.nav-item {
+  position: relative;
+}
+
+.nav-item.is-active {
+  background: var(--color-primary-container);
+  color: var(--color-on-primary-container);
+}
+
+.nav-item.is-active::before {
+  content: "";
+  position: absolute;
+  left: -10px;
+  top: 16px;
+  bottom: 16px;
+  width: 4px;
+  border-radius: 0 4px 4px 0;
+  background: var(--gradient-brand);
+}
+
+/* Buttons */
+.button {
+  border-radius: 12px;
+}
+
+.button--primary {
+  background: var(--gradient-brand);
+  color: #fff;
+  box-shadow: 0 1px 2px rgba(40, 42, 120, 0.25);
+}
+
+:root[data-theme="dark"] .button--primary {
+  color: #14153f;
+}
+
+.button--primary:hover:not(:disabled) {
+  filter: brightness(1.08) saturate(1.05);
+  box-shadow: 0 4px 14px var(--glow-a);
+}
+
+/* Search field */
+.search-form {
+  border-radius: 14px;
+  background: var(--color-surface);
+  box-shadow: var(--shadow-card);
+}
+
+.search-form:focus-within {
+  border-color: var(--brand-a);
+  box-shadow: 0 0 0 4px var(--glow-a), var(--shadow-card);
+}
+
+/* Cards */
+.catalog-card {
+  border-radius: 16px;
+  box-shadow: var(--shadow-card);
+}
+
+.catalog-card:hover {
+  border-color: var(--brand-a);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-float);
+}
+
+.catalog-card__art {
+  box-shadow: 0 6px 18px rgba(40, 42, 120, 0.16);
+}
+
+.track-row {
+  transition: background var(--motion-fast) ease, border-color var(--motion-fast) ease;
+}
+
+.track-row:hover {
+  border-color: color-mix(in srgb, var(--brand-a) 45%, var(--color-outline-soft));
+}
+
+/* Section headings: gradient tick */
+.section-heading h2 {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.section-heading h2::before {
+  content: "";
+  width: 4px;
+  height: 1.05em;
+  border-radius: 4px;
+  background: var(--gradient-brand);
+}
+
+/* Panels */
+.queue-panel {
+  background: color-mix(in srgb, var(--color-surface-low) 90%, transparent);
+}
+
+/* Pairing */
+.pairing-card__brand {
+  width: 64px;
+  height: 64px;
+  padding: 9px;
+  border-radius: 18px;
+  background: var(--color-surface-low);
+  border: 1px solid var(--color-outline-soft);
+}
+
+.pairing-card {
+  border-radius: 22px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .nav-rail__brand:hover {
+    transform: none;
+  }
+}
+
+/* ---------- v2: aurora, floating panels, immersive hero ---------- */
+
+::selection {
+  background: var(--color-primary-container);
+  color: var(--color-on-primary-container);
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-outline-soft) transparent;
+}
+
+/* Aurora: two slow drifting orbs behind everything */
+body::before,
+body::after {
+  content: "";
+  position: fixed;
+  z-index: -1;
+  width: 60vmax;
+  height: 60vmax;
+  border-radius: 50%;
+  pointer-events: none;
+  will-change: transform;
+}
+
+body::before {
+  top: -28vmax;
+  left: -16vmax;
+  background: radial-gradient(closest-side, var(--glow-a), transparent);
+  animation: aurora-a 32s ease-in-out infinite alternate;
+}
+
+body::after {
+  right: -22vmax;
+  bottom: -30vmax;
+  background: radial-gradient(closest-side, var(--glow-b), transparent);
+  animation: aurora-b 38s ease-in-out infinite alternate;
+}
+
+@keyframes aurora-a {
+  to { transform: translate3d(14vmax, 10vmax, 0) scale(1.12); }
+}
+
+@keyframes aurora-b {
+  to { transform: translate3d(-12vmax, -8vmax, 0) scale(1.1); }
+}
+
+/* Floating glass chrome (desktop + tablet) */
+@media (min-width: 761px) {
+  .app-shell {
+    gap: 12px;
+    padding: 12px;
+  }
+
+  .nav-rail {
+    top: 12px;
+    height: calc(100vh - 24px);
+    border: 1px solid var(--color-outline-soft);
+    border-radius: 24px;
+    box-shadow: var(--shadow-card);
+  }
+
+  .app-header {
+    top: 12px;
+    border: 1px solid var(--color-outline-soft);
+    border-radius: 20px;
+    box-shadow: var(--shadow-card);
+    padding: 12px 16px;
+  }
+
+  .workspace__main {
+    padding-top: 24px;
+  }
+}
+
+@media (min-width: 1200px) {
+  .queue-panel {
+    top: 12px;
+    height: calc(100vh - 24px);
+    border: 1px solid var(--color-outline-soft);
+    border-radius: 24px;
+    box-shadow: var(--shadow-card);
+  }
+}
+
+@supports (backdrop-filter: blur(1px)) {
+  .nav-rail,
+  .queue-panel {
+    backdrop-filter: blur(16px);
+  }
+}
+
+/* Hero empty state (initial search) */
+.empty-state {
+  border: 0;
+  background: transparent;
+  max-width: 640px;
+}
+
+.empty-state__icon {
+  position: relative;
+  width: 92px;
+  height: 92px;
+  border-radius: 28px;
+  background: var(--gradient-brand);
+  color: #fff;
+  box-shadow: 0 14px 40px var(--glow-a), 0 2px 6px rgba(40, 42, 120, 0.25);
+}
+
+.empty-state__icon::after {
+  content: "";
+  position: absolute;
+  inset: -10px;
+  border: 2px solid var(--brand-a);
+  border-radius: 36px;
+  opacity: 0;
+  animation: halo 3.6s ease-out infinite;
+}
+
+@keyframes halo {
+  0% { opacity: 0.5; transform: scale(0.92); }
+  100% { opacity: 0; transform: scale(1.18); }
+}
+
+:root[data-theme="dark"] .empty-state__icon {
+  color: #14153f;
+}
+
+.empty-state__icon svg {
+  width: 38px;
+  height: 38px;
+}
+
+.empty-state h2 {
+  font-size: clamp(30px, 5vw, 44px);
+  font-weight: 700;
+  line-height: 1.1;
+  letter-spacing: -0.025em;
+  color: var(--brand-a);
+  background: var(--gradient-brand);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.empty-state p {
+  font-size: 16px;
+}
+
+/* Gradient-outline hover on cards */
+.catalog-card {
+  border-color: var(--color-outline-soft);
+}
+
+.catalog-card:hover {
+  border-color: transparent;
+  background:
+    linear-gradient(var(--color-surface), var(--color-surface)) padding-box,
+    var(--gradient-brand) border-box;
+}
+
+.catalog-card--artist:hover .catalog-card__art {
+  box-shadow: 0 0 0 3px var(--color-surface), 0 0 0 5px var(--brand-a), 0 10px 28px var(--glow-a);
+}
+
+.catalog-card__title {
+  letter-spacing: -0.005em;
+}
+
+/* Track rows: accent rail on hover */
+.track-list {
+  border-radius: 16px;
+  box-shadow: var(--shadow-card);
+}
+
+.track-row {
+  position: relative;
+}
+
+.track-row::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 10px;
+  bottom: 10px;
+  width: 3px;
+  border-radius: 0 3px 3px 0;
+  background: var(--gradient-brand);
+  opacity: 0;
+  transition: opacity var(--motion-fast) ease;
+}
+
+.track-row:hover::before,
+.track-row:focus-within::before {
+  opacity: 1;
+}
+
+/* Immersive detail hero: blurred artwork backdrop */
+.detail-hero {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  border-radius: 24px;
+  box-shadow: var(--shadow-float);
+}
+
+.detail-hero::before,
+.detail-hero::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+}
+
+.detail-hero::before {
+  background: var(--hero-art, var(--gradient-brand)) center / cover no-repeat;
+  filter: blur(36px) saturate(1.5);
+  opacity: 0.55;
+  transform: scale(1.4);
+}
+
+.detail-hero::after {
+  background: linear-gradient(
+    to top,
+    color-mix(in srgb, var(--color-surface) 82%, transparent),
+    color-mix(in srgb, var(--color-surface) 56%, transparent)
+  );
+}
+
+.detail-hero__art {
+  box-shadow: 0 18px 44px rgba(10, 10, 40, 0.38);
+}
+
+.detail-hero h1 {
+  font-size: clamp(30px, 5vw, 52px);
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  line-height: 1.05;
+}
+
+/* Counts, eyebrow, queue */
+.count-pill {
+  background: var(--color-primary-container);
+  color: var(--color-on-primary-container);
+}
+
+.queue-job__progress span {
+  background: var(--gradient-brand);
+}
+
+.queue-job--active {
+  border-color: color-mix(in srgb, var(--brand-a) 55%, var(--color-outline-soft));
+  box-shadow: 0 0 0 3px var(--glow-a);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  body::before,
+  body::after,
+  .empty-state__icon::after {
+    animation: none;
+  }
+  .empty-state__icon::after {
+    display: none;
+  }
+}

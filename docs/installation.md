@@ -60,12 +60,14 @@ chmod +x install.sh uninstall.sh
 ```
 
 The installer downloads the wheel, verifies it against the release checksum,
-creates a uv-managed environment at
-`${XDG_DATA_HOME:-~/.local/share}/spotui/envs/spotui`, installs SpotUI there,
-and registers `${XDG_BIN_HOME:-~/.local/bin}/spotui` as a symlink. It preserves
-an existing non-SpotUI launcher at that path by renaming it with a
-`.legacy-<timestamp>` suffix. Re-running the same command is safe and
-idempotent.
+creates a uv-managed environment under the SpotUI root
+(`~/.local/share/spotui/envs/spotui` by default), installs SpotUI there, and
+registers `${XDG_BIN_HOME:-~/.local/bin}/spotui` as a symlink. Set
+`SPOTUI_HOME` before running the installer to use a different absolute root;
+configuration, database, logs, cache, lock, backups, and managed environments
+all move with it. The installer preserves an existing non-SpotUI launcher at
+the launcher path by renaming it with a `.legacy-<timestamp>` suffix. Re-running
+the same command is safe and idempotent.
 
 If `~/.local/bin` is not on `PATH`, add it in your shell configuration.
 
@@ -95,7 +97,8 @@ Cloudflare/browser setup. Run it from a desktop session, using the executable
 path printed by `spotui deps check`:
 
 ```bash
-~/.local/share/spotui/envs/lucidadl/bin/lucida setup
+ROOT="${SPOTUI_HOME:-${XDG_DATA_HOME:-$HOME/.local/share}/spotui}"
+"$ROOT/envs/lucidadl/bin/lucida" setup
 ```
 
 SpotUI never installs or updates dependencies during server startup.
@@ -107,10 +110,10 @@ spotui db upgrade     # no-op after install; safe to repeat
 spotui serve          # foreground server on http://127.0.0.1:8765/
 ```
 
-Edit `${XDG_CONFIG_HOME:-~/.config}/spotui/config.toml` for the port, trusted
-LAN subnet, library roots, logging, and matching concurrency. See the README
-for the complete annotated example. Invalid configuration fails before any
-listener binds.
+Edit `<root>/config.toml` — by default
+`~/.local/share/spotui/config.toml` — for the port, trusted LAN subnet, library
+roots, logging, and matching concurrency. See the README for the complete
+annotated example. Invalid configuration fails before any listener binds.
 
 ## Optional systemd user service
 
@@ -187,8 +190,7 @@ published version for an application rollback.
 
 ## Backup, restore, and rollback
 
-Managed backups are written under
-`${XDG_DATA_HOME:-~/.local/share}/spotui/backups/` as
+Managed backups are written under `<root>/backups/` as
 `spotui-<UTC timestamp>.sqlite3` with mode `0600`. Five are retained by
 default. Each copy is verified with `PRAGMA integrity_check`.
 
@@ -204,11 +206,11 @@ running, but stop the server before restoring or migrating.
 To restore a backup:
 
 ```bash
+ROOT="${SPOTUI_HOME:-${XDG_DATA_HOME:-$HOME/.local/share}/spotui}"
 spotui service disable                   # or stop the foreground server
-rm -f ~/.local/share/spotui/spotui.sqlite3-wal \
-      ~/.local/share/spotui/spotui.sqlite3-shm
-cp /path/to/verified-backup.sqlite3 ~/.local/share/spotui/spotui.sqlite3
-chmod 600 ~/.local/share/spotui/spotui.sqlite3
+rm -f "$ROOT/spotui.sqlite3-wal" "$ROOT/spotui.sqlite3-shm"
+cp /path/to/verified-backup.sqlite3 "$ROOT/spotui.sqlite3"
+chmod 600 "$ROOT/spotui.sqlite3"
 spotui db current
 ```
 
@@ -220,7 +222,7 @@ Application rollback and database rollback are separate decisions:
   features. Do not assume every migration can be reversed.
 - If an older application cannot open the newer schema, restore the backup made
   before the update. This is the only supported general rollback path.
-- Keep configuration and paired-device data: they live outside the package and
+- Keep configuration and paired-device data: they live in the SpotUI root and
   survive reinstalls. Restoring an older database also restores its paired
   devices and import sessions.
 
@@ -232,32 +234,53 @@ Application rollback and database rollback are separate decisions:
 
 The uninstaller stops and removes the optional systemd user unit, removes the
 managed SpotUI environment, and removes the launcher symlink if it points at
-that environment. It leaves configuration, database, logs, caches, the managed
-`lucidadl` environment, library roots, and all music untouched. An unrelated
-launcher at the same path is left in place.
+that environment. It leaves the entire SpotUI root — configuration, database,
+logs, cache, lock, backups, the managed `lucidadl` environment — along with
+library roots and all music untouched. An unrelated launcher at the same path
+is left in place.
 
-To remove SpotUI-owned configuration, database, state, cache, and the managed
-downloader environment as well:
+To remove the whole SpotUI root as well:
 
 ```bash
 ./uninstall.sh --purge-data --yes
 ```
 
-Data removal requires explicit confirmation. Downloaded music and configured
-library roots are outside SpotUI's data directories and are never touched.
+Data removal requires explicit confirmation. `--purge-data` also removes
+SpotUI-owned directories left by the earlier scattered XDG layout. Downloaded
+music and configured library roots are outside the root and are never touched.
+The optional launcher and systemd unit remain separate OS integration paths and
+are removed by the normal uninstall step.
 
 ## Paths
 
-| Data | Default |
-|---|---|
-| Configuration | `~/.config/spotui/` |
-| Database and managed environments | `~/.local/share/spotui/` |
-| Database backups | `~/.local/share/spotui/backups/` |
-| Logs and state | `~/.local/state/spotui/` |
-| Cache | `~/.cache/spotui/` |
-| Launcher | `~/.local/bin/spotui` |
-| systemd user unit | `~/.config/systemd/user/spotui.service` |
+**Root:** `${SPOTUI_HOME:-${XDG_DATA_HOME:-~/.local/share}/spotui}` — by default
+`~/.local/share/spotui/`.
 
-All paths respect `XDG_CONFIG_HOME`, `XDG_DATA_HOME`, `XDG_STATE_HOME`,
-`XDG_CACHE_HOME`, and `XDG_RUNTIME_DIR`. `XDG_BIN_HOME` is honored for the
-launcher when set.
+| Data | Default under the root |
+|---|---|
+| Configuration | `config.toml` |
+| Database | `spotui.sqlite3` |
+| Database backups | `backups/` |
+| Logs and rotations | `logs/spotui.log` |
+| Cache | `cache/` |
+| Lock file | `run/server-<root-hash>.lock` |
+| Managed environments | `envs/{spotui,lucidadl}/` |
+| Legacy queue | `queue.json` |
+
+Only the optional PATH launcher
+(`${XDG_BIN_HOME:-~/.local/bin}/spotui`) and systemd user unit
+(`${XDG_CONFIG_HOME:-~/.config}/systemd/user/spotui.service`) remain outside
+the root because the operating system requires those locations. `XDG_DATA_HOME`
+selects the default root parent, and `XDG_BIN_HOME` selects the launcher
+directory. All other SpotUI-owned data follows `SPOTUI_HOME`.
+
+### Earlier scattered layout
+
+The database was already stored at the root, so it does not move. Earlier local
+builds also placed configuration in `~/.config/spotui/`, logs in
+`~/.local/state/spotui/`, cache in `~/.cache/spotui/`, and the lock in
+`$XDG_RUNTIME_DIR/spotui/`. Move an existing config file to
+`~/.local/share/spotui/config.toml` (or point `SPOTUI_CONFIG` at it). The old
+log/cache/lock directories are no longer used and can be removed once you no
+longer need their contents. `uninstall.sh --purge-data` also removes those old
+leftovers explicitly.

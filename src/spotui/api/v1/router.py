@@ -11,6 +11,7 @@ from spotui.api.v1.routes import (
     now_playing,
     queue,
     search,
+    system,
 )
 
 router = APIRouter(prefix="/api/v1")
@@ -22,3 +23,4 @@ router.include_router(now_playing.router, tags=["now-playing"])
 router.include_router(library.router, tags=["library"])
 router.include_router(imports.router, tags=["imports"])
 router.include_router(devices.router, tags=["devices"])
+router.include_router(system.router, tags=["system"])

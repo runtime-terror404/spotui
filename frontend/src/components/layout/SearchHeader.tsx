@@ -1,5 +1,6 @@
 import { useEffect, useRef } from "react";
 
+import logoUrl from "../../assets/logo.png";
 import { useUIStore } from "../../state/uiStore";
 import { CloseIcon, SearchIcon } from "../icons";
 import { Button } from "../ui/Button";
@@ -46,7 +47,10 @@ export function SearchHeader() {
 
   return (
     <header className="app-header">
-      <span className="mobile-brand">SpotUI</span>
+      <span className="mobile-brand">
+        <img className="brand-mark" src={logoUrl} alt="" />
+        SpotUI
+      </span>
       <form
         className="search-form"
         role="search"

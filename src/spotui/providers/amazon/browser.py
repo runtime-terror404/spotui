@@ -195,14 +195,16 @@ class AmazonBrowserWorker:
         return parse_artist_payload(data, page_title)
 
     def community_playlist_detail(self, url: str) -> EntityDetail:
-        rows, page_title = self.submit(
+        rows, page_title, cover_image = self.submit(
             "community playlist detail",
             lambda: self._read_community_playlist(url),
             timeout=PLAYLIST_TIMEOUT,
         )
-        return parse_community_playlist_rows(rows, page_title)
+        return parse_community_playlist_rows(rows, page_title, cover_image)
 
-    def _read_community_playlist(self, url: str) -> tuple[list[dict[str, Any]], str]:
+    def _read_community_playlist(
+        self, url: str
+    ) -> tuple[list[dict[str, Any]], str, str | None]:
         self._ensure_browser()
         if self._page is None:
             raise CatalogUnavailableError("The Amazon Music browser page is unavailable.")
@@ -220,6 +222,7 @@ class AmazonBrowserWorker:
                         title: e.getAttribute('primary-text') || '',
                         artist: e.getAttribute('secondary-text-1') || '',
                         href: e.getAttribute('primary-href') || '',
+                        image: e.getAttribute('image-src') || '',
                         style: e.getAttribute('style') || ''
                     }))""",
                 )
@@ -248,7 +251,13 @@ class AmazonBrowserWorker:
                     self._page.wait_for_timeout(800)
                 ingest()
                 stalls = stalls + 1 if len(seen) == previous else 0
-            return collected, self._page.title()
+            cover_image = self._page.evaluate(
+                """() => {
+                    const header = document.querySelector('music-detail-header[image-src]');
+                    return header ? header.getAttribute('image-src') : '';
+                }"""
+            ) or None
+            return collected, self._page.title(), cover_image
         except CatalogError:
             raise
         except Exception as exc:

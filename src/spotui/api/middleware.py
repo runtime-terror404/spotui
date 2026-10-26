@@ -15,6 +15,7 @@ from spotui.logging_setup import log_context
 logger = logging.getLogger("spotui.request")
 
 _REQUEST_ID_RE = re.compile(r"^[A-Za-z0-9._-]{1,64}$")
+_SLOW_REQUEST_MS = 2_000.0
 
 
 def get_request_id(request: Request) -> str:
@@ -59,4 +60,17 @@ class RequestContextMiddleware:
                 await self.app(scope, receive, send_with_request_id)
             finally:
                 elapsed_ms = (time.perf_counter() - started) * 1000
-                logger.info("%s %s -> %d %.1fms", method, path, status, elapsed_ms)
+                if status >= 500:
+                    level = logging.ERROR
+                elif elapsed_ms >= _SLOW_REQUEST_MS:
+                    level = logging.INFO
+                else:
+                    level = logging.DEBUG
+                logger.log(
+                    level,
+                    "%s %s -> %d %.1fms",
+                    method,
+                    path,
+                    status,
+                    elapsed_ms,
+                )

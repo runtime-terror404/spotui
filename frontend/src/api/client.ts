@@ -7,6 +7,7 @@ import type {
   ImportEnqueueResponse,
   ImportListResponse,
   ImportSessionDetail,
+  LibraryOverview,
   NowPlayingResponse,
   PairedDeviceList,
   PairingInfo,
@@ -15,6 +16,7 @@ import type {
   QueueJob,
   QueueSnapshot,
   SearchResponse,
+  SystemInfo,
 } from "./types";
 
 export class ApiProblem extends Error {
@@ -155,6 +157,12 @@ export function retryQueueJob(jobId: string): Promise<QueueJob> {
   return postJson<QueueJob>(`/api/v1/queue/jobs/${encodeURIComponent(jobId)}/retry`);
 }
 
+export function dismissQueueJob(jobId: string): Promise<void> {
+  return request<void>(`/api/v1/queue/jobs/${encodeURIComponent(jobId)}`, {
+    method: "DELETE",
+  });
+}
+
 export function fetchImports(signal?: AbortSignal): Promise<ImportListResponse> {
   return request<ImportListResponse>("/api/v1/imports", { signal });
 }
@@ -276,4 +284,12 @@ export function revokePairedDevice(deviceId: string): Promise<void> {
     `/api/v1/devices/${encodeURIComponent(deviceId)}`,
     { method: "DELETE" },
   );
+}
+
+export function fetchSystemInfo(signal?: AbortSignal): Promise<SystemInfo> {
+  return request<SystemInfo>("/api/v1/system/info", { signal });
+}
+
+export function fetchLibrary(signal?: AbortSignal): Promise<LibraryOverview> {
+  return request<LibraryOverview>("/api/v1/library", { signal });
 }

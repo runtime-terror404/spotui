@@ -5,10 +5,12 @@ from dataclasses import dataclass
 
 import pytest
 from fastapi import FastAPI
+from sqlalchemy import func, select
 
 from spotui.app import create_app
 from spotui.domain.jobs import JobState
 from spotui.persistence.database import Database
+from spotui.persistence.models import JobAttempt
 from spotui.persistence.repositories.download_jobs import DownloadJobRepository
 from spotui.runtime import ApplicationRuntime
 from spotui.schemas.errors import ErrorCode
@@ -226,6 +228,76 @@ def test_cancel_queued_and_active_jobs(queue_context: QueueContext) -> None:
 
     again = queue_context.client.post(f"/api/v1/queue/jobs/{queued['id']}/cancel")
     assert_problem(again, 409, ErrorCode.INVALID_TRANSITION)
+
+
+def test_dismiss_queued_job_removes_it_without_history(
+    queue_context: QueueContext,
+) -> None:
+    job = queue_context.client.post(
+        "/api/v1/queue/jobs",
+        json={"url": TRACK_A, "title": "Queued"},
+    ).json()["job"]
+
+    response = queue_context.client.delete(f"/api/v1/queue/jobs/{job['id']}")
+
+    assert response.status_code == 204
+    assert response.content == b""
+    assert_problem(
+        queue_context.client.get(f"/api/v1/queue/jobs/{job['id']}"),
+        404,
+        ErrorCode.JOB_NOT_FOUND,
+    )
+    snapshot = queue_context.client.get("/api/v1/queue").json()
+    assert snapshot["jobs"] == []
+    assert snapshot["counts"]["queued"] == 0
+    assert snapshot["counts"]["cancelled"] == 0
+
+
+def test_dismiss_failed_job_removes_attempt_history(
+    queue_context: QueueContext,
+) -> None:
+    job = queue_context.client.post(
+        "/api/v1/queue/jobs",
+        json={"url": TRACK_A, "title": "Failed"},
+    ).json()["job"]
+    claimed = queue_context.repository.claim_next()
+    assert claimed is not None
+    queue_context.repository.finalize(
+        job["id"],
+        claimed.attempt_id,
+        state=JobState.FAILED,
+        message="download failed",
+    )
+
+    response = queue_context.client.delete(f"/api/v1/queue/jobs/{job['id']}")
+
+    assert response.status_code == 204
+    with queue_context.database.session_factory() as session:
+        assert session.scalar(select(func.count()).select_from(JobAttempt)) == 0
+    snapshot = queue_context.client.get("/api/v1/queue").json()
+    assert snapshot["jobs"] == []
+    assert snapshot["counts"]["failed"] == 0
+
+
+def test_dismiss_active_or_missing_job_is_rejected(
+    queue_context: QueueContext,
+) -> None:
+    job = queue_context.client.post(
+        "/api/v1/queue/jobs",
+        json={"url": TRACK_A, "title": "Active"},
+    ).json()["job"]
+    assert queue_context.repository.claim_next() is not None
+
+    assert_problem(
+        queue_context.client.delete(f"/api/v1/queue/jobs/{job['id']}"),
+        409,
+        ErrorCode.INVALID_TRANSITION,
+    )
+    assert_problem(
+        queue_context.client.delete("/api/v1/queue/jobs/missing"),
+        404,
+        ErrorCode.JOB_NOT_FOUND,
+    )
 
 
 def test_retry_failed_job_and_invalid_transition(queue_context: QueueContext) -> None:

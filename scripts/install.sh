@@ -15,8 +15,8 @@ usage() {
     cat <<'EOF'
 Usage: install.sh [options]
 
-Installs or updates SpotUI without touching system Python. User configuration,
-the SQLite database, logs, downloads, and library roots are preserved.
+Installs or updates SpotUI without touching system Python. The existing SpotUI
+root is preserved; only the managed code environment and launcher are replaced.
 
 Options:
   --version VERSION       Install a published version (for example 0.1.0)
@@ -29,6 +29,7 @@ Options:
   -h, --help              Show this help
 
 Environment:
+  SPOTUI_HOME             Absolute root (default: XDG data dir + /spotui)
   SPOTUI_REPOSITORY       Default GitHub repository
   SPOTUI_PYTHON           Default Python version (3.11)
 EOF
@@ -105,8 +106,16 @@ if ! command -v uv >/dev/null 2>&1; then
     exit 1
 fi
 
-DATA_HOME="${XDG_DATA_HOME:-$HOME/.local/share}"
-DATA_DIR="$DATA_HOME/spotui"
+if [[ -n "${SPOTUI_HOME:-}" ]]; then
+    DATA_DIR="$SPOTUI_HOME"
+else
+    DATA_HOME="${XDG_DATA_HOME:-$HOME/.local/share}"
+    DATA_DIR="$DATA_HOME/spotui"
+fi
+if [[ "$DATA_DIR" != /* || "$DATA_DIR" == "/" || "$DATA_DIR" == "$HOME" ]]; then
+    echo "install.sh: SPOTUI_HOME must be a dedicated absolute directory" >&2
+    exit 1
+fi
 ENV_DIR="$DATA_DIR/envs/spotui"
 BIN_DIR="${XDG_BIN_HOME:-$HOME/.local/bin}"
 LAUNCHER="$BIN_DIR/spotui"

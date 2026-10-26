@@ -1,8 +1,13 @@
-"""XDG path resolution for SpotUI.
+"""Filesystem layout for SpotUI.
 
-Every filesystem location used by the application is derived here so that no
-other module has to guess at ``~/.local``, the current working directory, or
-the location of managed environments.
+All application-owned persistent data lives under one root so users have a
+single directory to inspect, back up, or remove. The default root is the XDG
+data directory for SpotUI (``~/.local/share/spotui``); ``SPOTUI_HOME`` can
+override it with another absolute path.
+
+The PATH launcher and the optional systemd user unit are the only integration
+points outside the root because the operating system requires fixed locations
+for them.
 """
 
 from __future__ import annotations
@@ -32,12 +37,11 @@ def _xdg_dir(environ: Mapping[str, str], variable: str, fallback: Path) -> Path:
 
 @dataclass(frozen=True, slots=True)
 class Paths:
-    """All application-owned paths for one user and data directory."""
+    """All application-owned paths for one user and root directory."""
 
     config_file: Path
     config_dir: Path
     data_dir: Path
-    state_dir: Path
     cache_dir: Path
     runtime_dir: Path
     database_file: Path
@@ -61,21 +65,30 @@ class Paths:
         config_file: Path | None = None,
         environ: Mapping[str, str] | None = None,
     ) -> Paths:
-        """Resolve paths from XDG variables and SpotUI deployment overrides.
+        """Resolve the single application root and integration paths.
 
-        ``config_file`` (from the CLI) has precedence over ``SPOTUI_CONFIG``,
-        which has precedence over the default XDG location.
+        Precedence for the configuration file is the CLI ``--config`` option,
+        then ``SPOTUI_CONFIG``, then ``<root>/config.toml``. All other
+        application-owned paths are derived from ``<root>``. Set
+        ``SPOTUI_HOME`` to relocate the root; otherwise ``XDG_DATA_HOME``
+        selects its parent.
         """
         env = os.environ if environ is None else environ
         home = Path(env.get("HOME", str(Path.home())))
-
-        config_home = _xdg_dir(env, "XDG_CONFIG_HOME", home / ".config")
         data_home = _xdg_dir(env, "XDG_DATA_HOME", home / ".local" / "share")
-        state_home = _xdg_dir(env, "XDG_STATE_HOME", home / ".local" / "state")
-        cache_home = _xdg_dir(env, "XDG_CACHE_HOME", home / ".cache")
         bin_home = _xdg_dir(env, "XDG_BIN_HOME", home / ".local" / "bin")
 
-        config_dir = config_home / APP_NAME
+        root_override = env.get("SPOTUI_HOME", "").strip()
+        if root_override:
+            root = Path(root_override).expanduser()
+            if not root.is_absolute():
+                raise PathError("SPOTUI_HOME must be an absolute path")
+            if root == Path(root.anchor) or root == home:
+                raise PathError("SPOTUI_HOME must be a dedicated directory")
+        else:
+            root = data_home / APP_NAME
+
+        config_dir = root
         if config_file is not None:
             resolved_config = config_file.expanduser()
         elif env.get("SPOTUI_CONFIG", "").strip():
@@ -83,37 +96,38 @@ class Paths:
         else:
             resolved_config = config_dir / "config.toml"
 
-        data_dir = data_home / APP_NAME
-        state_dir = state_home / APP_NAME
-        cache_dir = cache_home / APP_NAME
+        cache_dir = root / "cache"
+        runtime_dir = root / "run"
+        log_dir = root / "logs"
 
-        # XDG_RUNTIME_DIR is the correct home for locks and ephemeral sockets.
-        # When it is unavailable, keep them in the per-user state directory.
-        runtime_dir = _xdg_dir(env, "XDG_RUNTIME_DIR", state_dir / "run") / APP_NAME
-
-        # One server per data directory, even when several data directories are
-        # used by the same user. The OS lock itself lives in the runtime dir.
-        digest = hashlib.sha256(str(data_dir.resolve()).encode()).hexdigest()[:16]
+        # One server per root, even when multiple roots are used by the same
+        # user. The OS lock lives inside the root; stale files are harmless
+        # because lock ownership comes from the kernel, not file existence.
+        digest = hashlib.sha256(str(root.resolve()).encode()).hexdigest()[:16]
         lock_file = runtime_dir / f"server-{digest}.lock"
 
-        lucidadl_env_dir = data_dir / "envs" / "lucidadl"
+        lucidadl_env_dir = root / "envs" / "lucidadl"
         return cls(
             config_file=resolved_config,
             config_dir=config_dir,
-            data_dir=data_dir,
-            state_dir=state_dir,
+            data_dir=root,
             cache_dir=cache_dir,
             runtime_dir=runtime_dir,
-            database_file=data_dir / "spotui.sqlite3",
-            backup_dir=data_dir / "backups",
-            legacy_queue_file=data_dir / "queue.json",
-            log_dir=state_dir / "logs",
-            log_file=state_dir / "logs" / "spotui.log",
+            database_file=root / "spotui.sqlite3",
+            backup_dir=root / "backups",
+            legacy_queue_file=root / "queue.json",
+            log_dir=log_dir,
+            log_file=log_dir / "spotui.log",
             lock_file=lock_file,
             bin_dir=bin_home,
             launcher_file=bin_home / APP_NAME,
-            systemd_unit_file=config_home / "systemd" / "user" / f"{APP_NAME}.service",
-            spotui_env_dir=data_dir / "envs" / "spotui",
+            systemd_unit_file=(
+                _xdg_dir(env, "XDG_CONFIG_HOME", home / ".config")
+                / "systemd"
+                / "user"
+                / f"{APP_NAME}.service"
+            ),
+            spotui_env_dir=root / "envs" / "spotui",
             lucidadl_env_dir=lucidadl_env_dir,
             lucidadl_executable=lucidadl_env_dir / "bin" / "lucida",
             lucidadl_python=lucidadl_env_dir / "bin" / "python",
@@ -123,7 +137,6 @@ class Paths:
         """Create the writable application directories with user-only access."""
         for directory in (
             self.data_dir,
-            self.state_dir,
             self.cache_dir,
             self.runtime_dir,
             self.log_dir,

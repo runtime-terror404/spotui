@@ -8,13 +8,30 @@ import { EmptyState } from "../../components/ui/EmptyState";
 import { ErrorState } from "../../components/ui/ErrorState";
 import { SectionHeading } from "../../components/ui/SectionHeading";
 import { SettingsIcon } from "../../components/icons";
+import { useQueue } from "../queue/hooks";
 import { useSnackbarStore } from "../../state/snackbarStore";
+import {
+  readThemePreference,
+  setThemePreference,
+  type ThemePreference,
+} from "../../state/theme";
 import {
   useAuthStatus,
   usePairedDevices,
   usePairingInfo,
   useRevokeDevice,
 } from "../auth/hooks";
+import { useLibraryOverview, useSystemInfo } from "./hooks";
+
+const THEME_OPTIONS: readonly { value: ThemePreference; label: string }[] = [
+  { value: "system", label: "System" },
+  { value: "light", label: "Light" },
+  { value: "dark", label: "Dark" },
+];
+
+function formatCount(value: number | undefined): string {
+  return value === undefined ? "—" : value.toLocaleString();
+}
 
 function formatSeen(timestamp: number | null | undefined): string {
   if (!timestamp) {
@@ -64,11 +81,21 @@ export function SettingsPage() {
   const pairing = usePairingInfo(local);
   const devices = usePairedDevices(local);
   const revoke = useRevokeDevice();
+  const system = useSystemInfo();
+  const library = useLibraryOverview();
+  const queue = useQueue();
   const pushSnackbar = useSnackbarStore((state) => state.push);
   const [deviceToRevoke, setDeviceToRevoke] = useState<PairedDevice | null>(
     null,
   );
+  const [theme, setTheme] = useState<ThemePreference>(readThemePreference);
   const actionError = pairing.error ?? devices.error ?? revoke.error;
+  const downloadDirectory = system.isError
+    ? "Unavailable"
+    : system.isPending
+      ? "Loading…"
+      : (system.data?.download_directory ?? "Not configured");
+  const libraryRoots = library.data?.roots ?? [];
 
   const refresh = () => {
     void pairing.refetch();
@@ -104,10 +131,89 @@ export function SettingsPage() {
         <p className="eyebrow">Application</p>
         <h1>Settings</h1>
         <p>
-          Manage trusted home-network access. SpotUI never exposes device
-          management or the pairing code to unpaired LAN browsers.
+          Appearance, library information, and trusted home-network access.
+          SpotUI never exposes device management or the pairing code to unpaired
+          LAN browsers.
         </p>
       </header>
+
+      <section className="settings-panel" aria-label="Appearance">
+        <SectionHeading title="Appearance" />
+        <fieldset className="theme-fieldset">
+          <legend className="visually-hidden">Theme</legend>
+          <div className="theme-options">
+            {THEME_OPTIONS.map((option) => (
+              <label
+                key={option.value}
+                className={`theme-option ${theme === option.value ? "is-selected" : ""}`.trim()}
+              >
+                <input
+                  type="radio"
+                  name="theme"
+                  value={option.value}
+                  checked={theme === option.value}
+                  onChange={() => {
+                    setTheme(option.value);
+                    setThemePreference(option.value);
+                  }}
+                />
+                <span>{option.label}</span>
+              </label>
+            ))}
+          </div>
+        </fieldset>
+        <p className="settings-help">
+          System follows your desktop appearance. The preference is stored only
+          in this browser.
+        </p>
+      </section>
+
+      <section className="settings-panel" aria-label="Library and downloads">
+        <SectionHeading title="Library & downloads" />
+        <div className="settings-grid">
+          <div className="settings-field">
+            <span className="settings-field__label">Download folder</span>
+            <code>{downloadDirectory}</code>
+          </div>
+          <div className="settings-field">
+            <span className="settings-field__label">Library tracks</span>
+            <strong>{formatCount(library.data?.total_files)}</strong>
+            <span>audio files indexed</span>
+          </div>
+          <div className="settings-field">
+            <span className="settings-field__label">Completed downloads</span>
+            <strong>{formatCount(queue.data?.counts.completed)}</strong>
+            <span>downloads in history</span>
+          </div>
+          <div className="settings-field">
+            <span className="settings-field__label">Application</span>
+            <strong>SpotUI {system.data?.version ?? "…"}</strong>
+            <span>{system.data?.root ?? ""}</span>
+          </div>
+        </div>
+        <div className="settings-field settings-field--wide">
+          <span className="settings-field__label">Library roots</span>
+          {library.isPending ? (
+            <span>Loading library roots…</span>
+          ) : library.isError ? (
+            <span>Library information is unavailable.</span>
+          ) : libraryRoots.length === 0 ? (
+            <span>No library roots configured.</span>
+          ) : (
+            <ul className="settings-root-list">
+              {libraryRoots.map((root) => (
+                <li key={root.id}>
+                  <code>{root.path}</code>
+                  <span>
+                    {root.available ? "available" : "unavailable"} ·{" "}
+                    {root.file_count.toLocaleString()} files
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      </section>
 
       <section className="settings-panel" aria-label="Access and pairing">
         <SectionHeading title="Access & pairing" />

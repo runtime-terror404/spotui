@@ -24,6 +24,7 @@ from spotui.services.matching import MatchingService
 from spotui.services.now_playing import NowPlayingService
 from spotui.services.queue import QueueService
 from spotui.services.search import SearchService
+from spotui.services.system_info import SystemInfoService
 from spotui.services.trusted_devices import TrustedDeviceService
 from spotui.workers.download_worker import DownloadWorker
 from spotui.workers.library_scanner import LibraryScanWorker
@@ -92,5 +93,6 @@ def build_application_services(
         library=library,
         imports=imports,
         trusted_devices=trusted_devices,
+        system_info=SystemInfoService(paths),
         resources=(catalog,),
     )

@@ -199,8 +199,15 @@ describe("App search and details flow", () => {
 
     renderApp();
     const nowPlaying = await screen.findByRole("button", {
-      name: "Search current track: Tum Hi Ho by Arijit Singh",
+      name: "Search current track",
     });
+    expect(
+      fetchMock.mock.calls.some(
+        ([input]) => String(input) === "/api/v1/now-playing",
+      ),
+    ).toBe(false);
+
+    expect(nowPlaying.textContent).toBe("");
     await user.click(nowPlaying);
 
     expect(
@@ -209,6 +216,7 @@ describe("App search and details flow", () => {
     expect(
       await screen.findByRole("button", { name: "Open Artist Arijit Singh" }),
     ).toBeInTheDocument();
+    expect(nowPlaying.textContent).toBe("");
   });
 
   it("shows a snackbar when nothing is playing", async () => {
@@ -230,7 +238,7 @@ describe("App search and details flow", () => {
 
     renderApp();
     await user.click(
-      await screen.findByRole("button", { name: "Now playing" }),
+      await screen.findByRole("button", { name: "Search current track" }),
     );
 
     expect(await screen.findByText("playerctl is not installed.")).toBeInTheDocument();

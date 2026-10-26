@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import type { RefObject } from "react";
+import type { CSSProperties, RefObject } from "react";
 import { useQuery } from "@tanstack/react-query";
 
 import { fetchEntityDetail } from "../../api/client";
@@ -24,6 +24,14 @@ import { SectionHeading } from "../../components/ui/SectionHeading";
 import { kindLabel } from "../catalog/labels";
 import { useEnqueueBatch, useEnqueueTrack } from "../queue/hooks";
 import { useUIStore } from "../../state/uiStore";
+
+function heroBackdrop(image?: string | null): CSSProperties | undefined {
+  if (!image || !/^https?:\/\//i.test(image)) {
+    return undefined;
+  }
+  const safe = encodeURI(image).replace(/["'()\\]/g, (c) => `%${c.charCodeAt(0).toString(16)}`);
+  return { "--hero-art": `url("${safe}")` } as CSSProperties;
+}
 
 function DetailSkeleton() {
   return (
@@ -67,7 +75,10 @@ function DetailContent({
 
   return (
     <>
-      <header className={`detail-hero ${artist ? "detail-hero--artist" : ""}`.trim()}>
+      <header
+        className={`detail-hero ${artist ? "detail-hero--artist" : ""}`.trim()}
+        style={heroBackdrop(detail.image)}
+      >
         <Artwork
           src={detail.image}
           alt=""

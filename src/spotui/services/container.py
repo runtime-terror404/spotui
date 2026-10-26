@@ -12,6 +12,7 @@ from spotui.services.library import LibraryService
 from spotui.services.now_playing import NowPlayingService
 from spotui.services.queue import QueueService
 from spotui.services.search import SearchService
+from spotui.services.system_info import SystemInfoService
 from spotui.services.trusted_devices import TrustedDeviceService
 
 logger = logging.getLogger("spotui.services")
@@ -30,6 +31,7 @@ class ApplicationServices:
     library: LibraryService | None = None
     imports: ImportService | None = None
     trusted_devices: TrustedDeviceService | None = None
+    system_info: SystemInfoService | None = None
     resources: tuple[Closable, ...] = ()
     _started: bool = field(default=False, init=False)
     _closed: bool = field(default=False, init=False)

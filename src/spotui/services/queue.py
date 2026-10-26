@@ -130,6 +130,9 @@ class QueueService:
         self._worker.wake()
         return job
 
+    def dismiss(self, job_id: str) -> None:
+        self._repository.dismiss(job_id)
+
     def ensure_available(self) -> None:
         if not self._downloader.available():
             raise DownloaderUnavailableError(

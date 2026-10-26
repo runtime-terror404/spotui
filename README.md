@@ -17,7 +17,9 @@ and recovery, Now Playing, a read-only multi-root library index, progressive
 Spotify imports with explicit matching, trusted LAN pairing and security, the
 installer/uninstaller, safe legacy queue migration, database backups, systemd
 user-service helpers, and CI/release packaging with bundled frontend assets.
-Remaining optional work is limited to appearance preferences, broader queue
+Settings now includes a persisted System/Light/Dark theme, download
+destination, library track count, completed-download count, application paths,
+and library-root status. Remaining optional work is limited to broader queue
 SSE, verified live downloader capture, and physical-LAN field testing. The
 baseline audit and verification evidence are recorded in
 [`docs/baseline-audit.md`](docs/baseline-audit.md).
@@ -131,6 +133,7 @@ API routes:
 
 ```text
 GET  /api/v1/health
+GET  /api/v1/system/info
 GET  /api/v1/search?q=...
 GET  /api/v1/entities/detail?url=...
 GET  /api/v1/now-playing
@@ -159,6 +162,7 @@ POST /api/v1/queue/jobs
 POST /api/v1/queue/batch
 POST /api/v1/queue/jobs/{id}/cancel
 POST /api/v1/queue/jobs/{id}/retry
+DELETE /api/v1/queue/jobs/{id}          # remove a waiting or finished job
 ```
 
 Interactive OpenAPI documentation is available at `/docs` in development.
@@ -175,8 +179,12 @@ for one year; only its SHA-256 hash is stored in SQLite.
 
 ## Configuration
 
-Configuration is read from `$XDG_CONFIG_HOME/spotui/config.toml` (usually
-`~/.config/spotui/config.toml`). Precedence is defaults → config file →
+All application-owned files live under one root:
+`~/.local/share/spotui/` by default. Configuration is read from
+`<root>/config.toml`, which is `~/.local/share/spotui/config.toml` with the
+default root. Set `SPOTUI_HOME` to an absolute dedicated directory to relocate
+the whole root, including configuration, database, logs, cache, lock, backups,
+and managed environments. Precedence for settings is defaults → config file →
 `SPOTUI_*` environment variables → CLI flags. Invalid ports, CIDRs, or log
 settings fail startup with an actionable message.
 
@@ -217,27 +225,31 @@ Supported environment overrides are `SPOTUI_PORT`, `SPOTUI_TRUSTED_SUBNET`,
 `SPOTUI_QUEUE_SHUTDOWN_GRACE_SECONDS`, `SPOTUI_JOB_TIMEOUT_SECONDS`,
 `SPOTUI_LIBRARY_ROOTS` (OS path separator-delimited absolute directories),
 `SPOTUI_LIBRARY_REFRESH_SECONDS`, `SPOTUI_LIBRARY_SCAN_ON_STARTUP`,
-`SPOTUI_MATCHING_CONCURRENCY`, and `SPOTUI_CONFIG` (config file path).
+`SPOTUI_MATCHING_CONCURRENCY`, `SPOTUI_HOME` (absolute application root), and
+`SPOTUI_CONFIG` (config file path).
 
 ## Data locations
 
-| Data | Default |
-|---|---|
-| Configuration | `~/.config/spotui/config.toml` |
-| Database | `~/.local/share/spotui/spotui.sqlite3` |
-| Database backups | `~/.local/share/spotui/backups/` |
-| Logs | `~/.local/state/spotui/logs/spotui.log` |
-| Cache | `~/.cache/spotui/` |
-| Lock file | `$XDG_RUNTIME_DIR/spotui/server-<data-dir-hash>.lock` |
-| Managed environments | `~/.local/share/spotui/envs/{spotui,lucidadl}/` |
-| Launcher | `~/.local/bin/spotui` |
-| systemd user unit | `~/.config/systemd/user/spotui.service` |
+**Root:** `~/.local/share/spotui/` (parent selected by `XDG_DATA_HOME`;
+override the complete path with `SPOTUI_HOME`).
 
-All XDG variables are respected; `XDG_BIN_HOME` selects the launcher directory.
+| Data | Default under the root |
+|---|---|
+| Configuration | `config.toml` |
+| Database | `spotui.sqlite3` (plus `-wal`/`-shm`) |
+| Database backups | `backups/` |
+| Logs and rotations | `logs/spotui.log` |
+| Cache | `cache/` |
+| Lock file | `run/server-<root-hash>.lock` |
+| Managed environments | `envs/{spotui,lucidadl}/` |
+| Legacy JSON queue | `queue.json` — read-only |
+
+Two optional integration files remain outside the root because the OS requires
+fixed locations: the PATH launcher (`~/.local/bin/spotui`, or `XDG_BIN_HOME`)
+and the systemd user unit (`~/.config/systemd/user/spotui.service`).
 Downloaded media stays at the destination configured in `lucidadl`; SpotUI does
 not move or modify existing media. Library roots are a separate, read-only
-setting. The legacy JSON queue is read-only and remains at
-`~/.local/share/spotui/queue.json` until you remove it yourself.
+setting.
 
 ## Trusted LAN access and pairing
 
@@ -283,7 +295,10 @@ protection, and the trusted-subnet source check remain enforced.
 - One in-process download worker owns exactly one managed `lucidadl` process at
   a time. Jobs and attempts persist in SQLite; active jobs interrupted by a
   restart become `interrupted` and require explicit Retry. Cancellation signals
-  only the owned process group and never deletes partial output.
+  only the owned process group and never deletes partial output. Because
+  `lucidadl` reports both dedup hits and unresolved tracks as "skipped", only
+  its explicit already-downloaded skip counts as completed; not-found and
+  unexplained skips are failures with actionable errors.
 - The durable library index scans configured read-only roots into SQLite. A
   background scanner supports startup, periodic, and API-triggered refreshes.
   It reads Mutagen tags, falls back to filenames, extracts Amazon track identity
@@ -295,7 +310,9 @@ protection, and the trusted-subnet source check remain enforced.
   `playerctl -l`, prefers Spotify-compatible players, and returns an explicit
   non-fatal availability state when `playerctl` or a player is absent. Set
   `SPOTUI_MPRIS_PLAYER` (legacy: `SPOTGRAB_PLAYER`) to force a player name.
-  The header action searches Amazon by the current track title.
+  The icon-only header button reads the player only when clicked, then searches
+  Amazon by the current track title; it does not poll in the background or
+  retain stale track text in the button.
 - Spotify imports validate public album/playlist hosts and bounded redirects,
   then read the public embed page. Source occurrences retain order, position,
   and duplicates. One active import owns the matching slot; a bounded worker
@@ -310,8 +327,22 @@ protection, and the trusted-subnet source check remain enforced.
   interface, require Host/Origin and CSRF checks, and need a paired-device
   cookie. Pairing codes exist only in memory and are exposed only through
   loopback Settings; credential hashes persist in SQLite.
-- REST and SQLite are authoritative; the queue UI currently polls, with broader
-  SSE planned for a later phase.
+- Settings exposes read-only application, downloader, and library information
+  plus a browser-local System/Light/Dark theme preference. It does not edit
+  server configuration. Queue rows are compact outside the active section:
+  status is conveyed by the leading icon, completed rows show the downloaded
+  filename, and waiting/history metadata is summarized as title | artist.
+- REST and SQLite are authoritative; the queue UI polls every 1.5 seconds while
+  work is active and every 10 seconds when idle, with broader SSE planned for a
+  later phase. The compact side panel drops cancelled jobs immediately and
+  completed jobs three seconds after completion. The X action removes waiting
+  jobs without creating history and dismisses failed/interrupted jobs; a retry
+  remains available for failures. The Queue page shows only the latest 50
+  completed history rows while Completed remains an SQL aggregate over all
+  persisted jobs. The snapshot returns up to 500 recent jobs. Successful HTTP
+  access logs are emitted at `DEBUG`; slow requests (over two seconds) and
+  server errors remain visible at `INFO`/`ERROR`, so set
+  `logging.level = "DEBUG"` only when full request tracing is needed.
 - The legacy JSON queue migration is read-only toward the source file and uses
   a per-record ledger for repeat-safe imports. Active legacy jobs become
   `interrupted`; unknown or malformed records are reported and skipped.

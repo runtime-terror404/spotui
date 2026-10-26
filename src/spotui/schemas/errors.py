@@ -39,6 +39,7 @@ class ErrorCode(StrEnum):
     DOWNLOADER_UNAVAILABLE = "downloader_unavailable"
     NOW_PLAYING_UNAVAILABLE = "now_playing_unavailable"
     LIBRARY_UNAVAILABLE = "library_unavailable"
+    SYSTEM_UNAVAILABLE = "system_unavailable"
     INVALID_LIBRARY_ROOT = "invalid_library_root"
     INVALID_CONFIGURATION = "invalid_configuration"
     PORT_UNAVAILABLE = "port_unavailable"

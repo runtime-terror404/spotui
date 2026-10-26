@@ -1,3 +1,4 @@
+import logoUrl from "../../assets/logo.png";
 import { useUIStore } from "../../state/uiStore";
 import { ImportsIcon, QueueIcon, SearchIcon, SettingsIcon } from "../icons";
 
@@ -19,7 +20,7 @@ export function NavRail() {
         title="SpotUI"
         onClick={openSearch}
       >
-        S
+        <img className="brand-mark" src={logoUrl} alt="" />
       </button>
       <ul className="nav-rail__items">
         <li>

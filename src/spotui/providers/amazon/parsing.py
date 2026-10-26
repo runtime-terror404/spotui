@@ -44,6 +44,45 @@ def _image(value: Any) -> str | None:
     return text or None
 
 
+def _cover_image(value: Any) -> str | None:
+    """Normalize lucida's cover string, object, or size-ladder list."""
+    direct = _image(value)
+    if direct:
+        return direct
+    if isinstance(value, Mapping):
+        return _image(value.get("url"))
+    if not isinstance(value, Sequence) or isinstance(value, (str, bytes)):
+        return None
+
+    candidates: list[tuple[str, int | None]] = []
+    for item in value:
+        if isinstance(item, str):
+            url = _image(item)
+            width = None
+        elif isinstance(item, Mapping):
+            url = _image(item.get("url"))
+            raw_width = item.get("width")
+            width = (
+                raw_width
+                if isinstance(raw_width, int)
+                and not isinstance(raw_width, bool)
+                and raw_width > 0
+                else None
+            )
+        else:
+            continue
+        if url:
+            candidates.append((url, width))
+    if not candidates:
+        return None
+    # Prefer a reasonably sized cover over the largest asset to keep the web UI
+    # light while remaining sharp in the 232 px detail hero.
+    for url, width in candidates:
+        if width is not None and width >= 300:
+            return url
+    return max(candidates, key=lambda candidate: candidate[1] or 0)[0]
+
+
 def _absolute(deeplink: str) -> str:
     if deeplink.startswith("http"):
         return deeplink
@@ -225,8 +264,11 @@ def parse_artist_payload(data: Any, page_title: str) -> EntityDetail:
 
 
 def parse_community_playlist_rows(
-    rows: Sequence[Mapping[str, Any]], page_title: str
+    rows: Sequence[Mapping[str, Any]],
+    page_title: str,
+    cover_image: str | None = None,
 ) -> EntityDetail:
+    cover = _image(cover_image)
     found: dict[int, TrackReference] = {}
     for row in rows:
         title = _text(row.get("title"))
@@ -245,18 +287,22 @@ def parse_community_playlist_rows(
                 title=title,
                 artist=_text(row.get("artist")),
                 url=_absolute(href),
-                image=None,
+                image=_image(row.get("image")) or cover,
             ),
         )
 
     if not found:
         raise CatalogResponseError("No tracks were found in this Amazon Music playlist.")
     title = page_title.split("|")[0].strip() or "Playlist"
+    playlist_image = cover or next(
+        (track.image for track in found.values() if track.image),
+        None,
+    )
     return EntityDetail(
         kind=CatalogKind.COMMUNITY_PLAYLIST,
         title=title,
         subtitle="",
-        image=None,
+        image=playlist_image,
         tracks=tuple(found[order] for order in sorted(found)),
         albums=(),
     )
@@ -281,7 +327,7 @@ def parse_lucida_info(info: Any) -> EntityDetail:
     kind = CatalogKind.ALBUM if item_type == "album" else CatalogKind.PLAYLIST
 
     album_artists = _text(info.get("artist")) or _artist_names(info.get("artists"))
-    cover = _image(info.get("cover")) or _image(info.get("coverArtwork"))
+    cover = _cover_image(info.get("cover")) or _cover_image(info.get("coverArtwork"))
     tracks: list[TrackReference] = []
     raw_tracks = info.get("tracks")
     if isinstance(raw_tracks, list):

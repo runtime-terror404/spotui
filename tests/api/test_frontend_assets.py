@@ -19,6 +19,7 @@ def web_dist(tmp_path: Path) -> Path:
         encoding="utf-8",
     )
     (dist / "assets" / "app.js").write_text("console.log('ok');", encoding="utf-8")
+    (dist / "favicon.png").write_bytes(b"\x89PNG\r\n\x1a\n")
     return dist
 
 
@@ -33,6 +34,10 @@ def test_built_frontend_is_served_without_breaking_api(runtime, web_dist: Path) 
         asset = client.get("/assets/app.js")
         assert asset.status_code == 200
         assert asset.text == "console.log('ok');"
+
+        favicon = client.get("/favicon.png")
+        assert favicon.status_code == 200
+        assert favicon.headers["content-type"] == "image/png"
 
         assert client.get("/api/v1/health").status_code == 200
         assert_problem(

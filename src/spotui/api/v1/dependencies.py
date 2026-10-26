@@ -21,6 +21,7 @@ from spotui.services.imports import ImportService
 from spotui.services.library import LibraryService
 from spotui.services.now_playing import NowPlayingService
 from spotui.services.queue import QueueService
+from spotui.services.system_info import SystemInfoService
 from spotui.services.trusted_devices import TrustedDeviceService
 
 
@@ -66,6 +67,18 @@ def get_trusted_device_service(request: Request) -> TrustedDeviceService:
     return services.trusted_devices
 
 
+def get_system_info_service(request: Request) -> SystemInfoService:
+    services = getattr(request.app.state.runtime, "services", None)
+    if services is None or services.system_info is None:
+        raise ApiError(
+            status_code=503,
+            code=ErrorCode.SYSTEM_UNAVAILABLE,
+            title="System information unavailable",
+            detail="Application information is not configured.",
+        )
+    return services.system_info
+
+
 def require_local_access(request: Request) -> None:
     if not getattr(request.state, "spotui_local", False):
         raise ApiError(
@@ -81,6 +94,10 @@ QueueDependency = Annotated[QueueService, Depends(get_queue_service)]
 NowPlayingDependency = Annotated[NowPlayingService, Depends(get_now_playing_service)]
 LibraryDependency = Annotated[LibraryService, Depends(get_library_service)]
 ImportDependency = Annotated[ImportService, Depends(get_import_service)]
+SystemInfoDependency = Annotated[
+    SystemInfoService,
+    Depends(get_system_info_service),
+]
 TrustedDeviceDependency = Annotated[
     TrustedDeviceService,
     Depends(get_trusted_device_service),

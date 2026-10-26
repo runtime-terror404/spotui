@@ -133,6 +133,13 @@ def create_app(
         @app.get("/", include_in_schema=False)
         def frontend_index() -> FileResponse:
             return FileResponse(dist / "index.html", media_type="text/html")
+
+        if (dist / "favicon.png").is_file():
+
+            @app.get("/favicon.png", include_in_schema=False)
+            def frontend_favicon() -> FileResponse:
+                return FileResponse(dist / "favicon.png", media_type="image/png")
+
     else:
         html = load_placeholder_html() if placeholder_html is None else placeholder_html
 

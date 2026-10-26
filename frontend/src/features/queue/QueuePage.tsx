@@ -7,8 +7,8 @@ import { ErrorState } from "../../components/ui/ErrorState";
 import { SectionHeading } from "../../components/ui/SectionHeading";
 import { useUIStore } from "../../state/uiStore";
 import { QueueJobRow } from "./QueueJobRow";
-import { useCancelJob, useQueue, useRetryJob } from "./hooks";
-import { isActiveState } from "./format";
+import { useCancelJob, useDismissJob, useQueue, useRetryJob } from "./hooks";
+import { historyQueueJobs, isActiveState } from "./format";
 
 function QueueSection({
   title,
@@ -16,12 +16,14 @@ function QueueSection({
   busy,
   onCancel,
   onRetry,
+  onDismiss,
 }: {
   title: string;
   jobs: QueueJob[];
   busy: boolean;
   onCancel: (job: QueueJob) => void;
   onRetry: (job: QueueJob) => void;
+  onDismiss: (job: QueueJob) => void;
 }) {
   if (jobs.length === 0) {
     return null;
@@ -37,6 +39,7 @@ function QueueSection({
             busy={busy}
             onCancel={onCancel}
             onRetry={onRetry}
+            onDismiss={onDismiss}
           />
         ))}
       </div>
@@ -57,10 +60,12 @@ export function QueuePage() {
   const queue = useQueue();
   const cancel = useCancelJob();
   const retry = useRetryJob();
+  const dismiss = useDismissJob();
   const openSearch = useUIStore((state) => state.openSearch);
-  const busy = cancel.isPending || retry.isPending;
+  const busy = cancel.isPending || retry.isPending || dismiss.isPending;
   const onCancel = (job: QueueJob) => cancel.mutate(job.id);
   const onRetry = (job: QueueJob) => retry.mutate(job.id);
+  const onDismiss = (job: QueueJob) => dismiss.mutate(job);
 
   if (queue.isPending) {
     return (
@@ -91,9 +96,9 @@ export function QueuePage() {
   const attention = jobs.filter(
     (job) => job.state === "failed" || job.state === "interrupted",
   );
-  const history = jobs.filter(
-    (job) => job.state === "completed" || job.state === "cancelled",
-  );
+  const history = historyQueueJobs(jobs);
+  const hasVisibleJobs =
+    active.length + waiting.length + attention.length + history.length > 0;
 
   return (
     <div className="queue-page">
@@ -113,7 +118,7 @@ export function QueuePage() {
         </div>
       </header>
 
-      {jobs.length === 0 ? (
+      {!hasVisibleJobs ? (
         <EmptyState
           icon={<QueueIcon />}
           title="No downloads yet"
@@ -132,6 +137,7 @@ export function QueuePage() {
             busy={busy}
             onCancel={onCancel}
             onRetry={onRetry}
+            onDismiss={onDismiss}
           />
           <QueueSection
             title="Waiting"
@@ -139,6 +145,7 @@ export function QueuePage() {
             busy={busy}
             onCancel={onCancel}
             onRetry={onRetry}
+            onDismiss={onDismiss}
           />
           <QueueSection
             title="Needs attention"
@@ -146,6 +153,7 @@ export function QueuePage() {
             busy={busy}
             onCancel={onCancel}
             onRetry={onRetry}
+            onDismiss={onDismiss}
           />
           <QueueSection
             title="History"
@@ -153,6 +161,7 @@ export function QueuePage() {
             busy={busy}
             onCancel={onCancel}
             onRetry={onRetry}
+            onDismiss={onDismiss}
           />
         </>
       )}

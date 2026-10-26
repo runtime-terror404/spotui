@@ -6,7 +6,7 @@ import time
 import uuid
 from collections.abc import Callable
 
-from sqlalchemy import func, select
+from sqlalchemy import delete, func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, sessionmaker
 
@@ -30,6 +30,12 @@ from spotui.persistence.models import JobAttempt as JobAttemptRow
 
 _ACTIVE_VALUES = tuple(state.value for state in ACTIVE_JOB_STATES)
 _RETRYABLE_VALUES = (JobState.FAILED.value, JobState.INTERRUPTED.value)
+_DISMISSABLE_VALUES = (
+    JobState.QUEUED.value,
+    JobState.FAILED.value,
+    JobState.INTERRUPTED.value,
+    JobState.CANCELLED.value,
+)
 
 
 def _epoch() -> int:
@@ -268,6 +274,33 @@ class DownloadJobRepository:
             raise DuplicateActiveJobError(
                 "Another active download already reserves this track."
             ) from None
+
+    def dismiss(self, job_id: str) -> None:
+        """Delete a waiting or finished job without adding it to history.
+
+        The state-qualified delete ensures a job claimed by the worker between
+        the read and delete is not removed while its subprocess is active.
+        """
+        with self._session_factory.begin() as session:
+            state = session.scalar(
+                select(DownloadJobRow.state).where(DownloadJobRow.id == job_id)
+            )
+            if state is None:
+                raise JobNotFoundError("Download job not found.")
+            if state not in _DISMISSABLE_VALUES:
+                raise JobTransitionError(
+                    "An active download must be cancelled before it can be removed."
+                )
+            deleted = session.execute(
+                delete(DownloadJobRow).where(
+                    DownloadJobRow.id == job_id,
+                    DownloadJobRow.state == state,
+                )
+            ).rowcount
+            if not deleted:
+                raise JobTransitionError(
+                    "The download started before it could be removed."
+                )
 
     def recover_interrupted(self) -> int:
         """Mark jobs left active by a previous process as interrupted."""

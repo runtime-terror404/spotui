@@ -276,3 +276,42 @@ export interface PairingInfo {
 export interface PairedDeviceList {
   devices: PairedDevice[];
 }
+
+export interface SystemInfo {
+  version: string;
+  root: string;
+  config_file: string;
+  download_directory?: string | null;
+  downloader_available: boolean;
+}
+
+export interface LibraryRoot {
+  id: number;
+  path: string;
+  available: boolean;
+  index_complete: boolean;
+  last_checked_at?: number | null;
+  last_scan_at?: number | null;
+  file_count: number;
+  last_error?: string | null;
+}
+
+export interface LibraryScan {
+  id: number;
+  root_id: number;
+  status: "running" | "completed" | "failed" | "interrupted";
+  started_at: number;
+  finished_at?: number | null;
+  files_seen: number;
+  files_indexed: number;
+  files_removed: number;
+  files_failed: number;
+  error?: string | null;
+}
+
+export interface LibraryOverview {
+  roots: LibraryRoot[];
+  active_scan?: LibraryScan | null;
+  total_files: number;
+  unavailable_roots: number;
+}

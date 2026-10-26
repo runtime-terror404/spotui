@@ -85,3 +85,14 @@ def cancel_job(job_id: str, queue: QueueDependency) -> QueueJobResult:
 )
 def retry_job(job_id: str, queue: QueueDependency) -> QueueJobResult:
     return queue_job_result(queue.retry(job_id))
+
+
+@router.delete(
+    "/queue/jobs/{job_id}",
+    status_code=204,
+    response_class=Response,
+    summary="Remove a waiting or finished download",
+)
+def dismiss_job(job_id: str, queue: QueueDependency) -> Response:
+    queue.dismiss(job_id)
+    return Response(status_code=204)

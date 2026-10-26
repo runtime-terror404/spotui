@@ -199,6 +199,23 @@ def test_install_rejects_a_mismatched_release_checksum(
     assert "checksum verification failed" in result.stderr
 
 
+def test_install_honors_spotui_home(
+    shell_env: dict[str, str], tmp_path: Path
+) -> None:
+    root = tmp_path / "portable-spotui"
+    shell_env["SPOTUI_HOME"] = str(root)
+
+    result = run_script(
+        INSTALL,
+        ["--wheel", str(wheel(tmp_path))],
+        environment=shell_env,
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert (root / "envs" / "spotui" / "bin" / "spotui").is_file()
+    assert (Path(shell_env["XDG_BIN_HOME"]) / "spotui").is_symlink()
+
+
 def test_install_preserves_an_existing_launcher(
     shell_env: dict[str, str], tmp_path: Path
 ) -> None:
@@ -259,12 +276,12 @@ def test_uninstall_removes_code_but_preserves_user_state(
     assert installed.returncode == 0, installed.stderr
 
     data_dir = Path(shell_env["XDG_DATA_HOME"]) / "spotui"
-    state_dir = Path(shell_env["XDG_STATE_HOME"]) / "spotui"
-    config_dir = Path(shell_env["XDG_CONFIG_HOME"]) / "spotui"
-    cache_dir = Path(shell_env["XDG_CACHE_HOME"]) / "spotui"
     database = data_dir / "spotui.sqlite3"
+    config = data_dir / "config.toml"
+    log = data_dir / "logs" / "spotui.log"
+    cache_dir = data_dir / "cache"
     songs = tmp_path / "Music" / "song.flac"
-    for path in (database, state_dir / "logs" / "spotui.log", config_dir / "config.toml"):
+    for path in (database, config, log):
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text("preserve me", encoding="utf-8")
     cache_dir.mkdir(parents=True)
@@ -282,8 +299,8 @@ def test_uninstall_removes_code_but_preserves_user_state(
     assert not (data_dir / "envs" / "spotui").exists()
     assert not (Path(shell_env["XDG_BIN_HOME"]) / "spotui").exists()
     assert database.read_text(encoding="utf-8") == "preserve me"
-    assert (config_dir / "config.toml").exists()
-    assert (state_dir / "logs" / "spotui.log").exists()
+    assert config.exists()
+    assert log.exists()
     assert cache_dir.exists()
     assert lucidadl.exists()
     assert songs.read_text(encoding="utf-8") == "music"
@@ -300,10 +317,12 @@ def test_purge_requires_confirmation_and_never_touches_music(
     assert installed.returncode == 0, installed.stderr
 
     data_dir = Path(shell_env["XDG_DATA_HOME"]) / "spotui"
-    config_dir = Path(shell_env["XDG_CONFIG_HOME"]) / "spotui"
-    state_dir = Path(shell_env["XDG_STATE_HOME"]) / "spotui"
-    cache_dir = Path(shell_env["XDG_CACHE_HOME"]) / "spotui"
-    for directory in (config_dir, state_dir, cache_dir, data_dir):
+    legacy_dirs = [
+        Path(shell_env["XDG_CONFIG_HOME"]) / "spotui",
+        Path(shell_env["XDG_STATE_HOME"]) / "spotui",
+        Path(shell_env["XDG_CACHE_HOME"]) / "spotui",
+    ]
+    for directory in (data_dir, *legacy_dirs):
         directory.mkdir(parents=True, exist_ok=True)
         (directory / "marker").write_text("data", encoding="utf-8")
     songs = tmp_path / "Music" / "song.flac"
@@ -326,6 +345,6 @@ def test_purge_requires_confirmation_and_never_touches_music(
     )
 
     assert purged.returncode == 0, purged.stderr
-    for directory in (config_dir, state_dir, cache_dir, data_dir):
+    for directory in (data_dir, *legacy_dirs):
         assert not directory.exists()
     assert songs.read_text(encoding="utf-8") == "music"

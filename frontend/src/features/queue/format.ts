@@ -1,5 +1,30 @@
 import type { JobState, QueueJob } from "../../api/types";
 
+export const COMPACT_COMPLETED_HOLD_SECONDS = 3;
+export const HISTORY_LIMIT = 50;
+
+export function historyQueueJobs(jobs: QueueJob[]): QueueJob[] {
+  return jobs
+    .filter((job) => job.state === "completed")
+    .slice(0, HISTORY_LIMIT);
+}
+
+export function compactQueueJobs(
+  jobs: QueueJob[],
+  nowSeconds: number,
+): QueueJob[] {
+  return jobs.filter((job) => {
+    if (job.state === "cancelled") {
+      return false;
+    }
+    if (job.state !== "completed") {
+      return true;
+    }
+    const finishedAt = job.completed_at ?? job.updated_at;
+    return nowSeconds - finishedAt < COMPACT_COMPLETED_HOLD_SECONDS;
+  });
+}
+
 export function jobStatusLabel(job: QueueJob): string {
   switch (job.state) {
     case "queued":
