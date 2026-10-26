@@ -5,6 +5,10 @@ rolling Arch Linux. The current release is tested on x86_64; other Linux
 architectures are not yet verified. Windows and macOS are not supported. The
 installer never modifies system Python.
 
+> [!WARNING]
+> Use SpotUI only with content you have the legal right to access and download.
+> Read the project's [legal notice](../README.md#legal-notice) before use.
+
 ## Prerequisites
 
 Required:

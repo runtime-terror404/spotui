@@ -1,55 +1,123 @@
-# SpotUI
+<p align="center">
+  <img src="asset/logo.png" alt="SpotUI logo" width="124" />
+</p>
 
-SpotUI is a local music search and download application. It searches Amazon
-Music through a headless browser, lets you pick the exact release, and queues
-downloads through the `lucidadl` downloader.
+<h1 align="center">SpotUI</h1>
 
-This repository is being migrated incrementally from the reference
-implementation in `v0/` to a modular FastAPI + React application. The migration
-plan is in [`refactor.md`](refactor.md); `v0/` is a read-only behavioral
-reference and is never imported by the new package.
+<p align="center">
+  <strong>Search, choose, and download from Amazon Music — locally.</strong><br />
+  A private FastAPI + React interface for a durable, local download queue.
+</p>
 
-## Current status
+<p align="center">
+  <a href="#features">Features</a> ·
+  <a href="#quick-start">Quick start</a> ·
+  <a href="#phone-access">Phone access</a> ·
+  <a href="#configuration">Configuration</a> ·
+  <a href="#api">API</a> ·
+  <a href="#development">Development</a>
+</p>
 
-**Phases 1–9: the complete first-release feature set.** The package includes
-search and entity details, a durable download queue with cancellation, retry
-and recovery, Now Playing, a read-only multi-root library index, progressive
-Spotify imports with explicit matching, trusted LAN pairing and security, the
-installer/uninstaller, safe legacy queue migration, database backups, systemd
-user-service helpers, and CI/release packaging with bundled frontend assets.
-Settings now includes a persisted System/Light/Dark theme, download
-destination, library track count, completed-download count, application paths,
-and library-root status. Remaining optional work is limited to broader queue
-SSE, verified live downloader capture, and physical-LAN field testing. The
-baseline audit and verification evidence are recorded in
-[`docs/baseline-audit.md`](docs/baseline-audit.md).
+<p align="center">
+  <img alt="Python 3.11+" src="https://img.shields.io/badge/python-3.11%2B-3776AB?logo=python&logoColor=white" />
+  <img alt="React 19" src="https://img.shields.io/badge/react-19-61DAFB?logo=react&logoColor=black" />
+  <img alt="FastAPI" src="https://img.shields.io/badge/fastapi-0.115%2B-009688?logo=fastapi&logoColor=white" />
+  <img alt="SQLite" src="https://img.shields.io/badge/sqlite-local-003B57?logo=sqlite&logoColor=white" />
+  <img alt="Linux" src="https://img.shields.io/badge/platform-linux-FCC624?logo=linux&logoColor=black" />
+</p>
+
+SpotUI is a local web app for finding music on Amazon Music, choosing the exact
+release, and downloading it through a managed `lucidadl` environment. Search and
+inspect albums or playlists, queue tracks, and follow progress from the desktop
+or a paired phone. It also imports public Spotify playlists, indexes your
+existing library without changing it, and keeps queue state in SQLite across
+restarts.
+
+No cloud backend, hosted account, or Spotify login is involved.
+
+## Legal notice
+
+> [!WARNING]
+> **Use at your own risk.** SpotUI is an independent, local interface and does
+> not provide, host, or distribute music. It is not affiliated with Amazon
+> Music, Spotify, or lucidadl. Downloading or converting content may be
+> restricted by copyright law, service terms, or regional rules. Use SpotUI
+> only with content you have the legal right to access and download, and comply
+> with applicable laws and agreements. To the extent permitted by law, the
+> project authors accept no responsibility for misuse. This notice is not legal
+> advice.
+
+> [!NOTE]
+> The first-release feature set is complete. CI and release workflows are in
+> place, but a tagged public release has not been published yet. Use the source
+> quick start until release assets are available.
+
+## Features
+
+- **Amazon Music search** through Playwright, with album, track, artist, and
+  playlist results.
+- **Exact release selection** with artwork and track lists for albums,
+  editorial playlists, and public community playlists.
+- **Durable queue** that persists jobs, runs one download at a time, and
+  supports cancellation, retry, and restart recovery.
+- **Spotify imports** for public albums and playlists, with progressive matching
+  and explicit review before anything is queued.
+- **Read-only library index** across multiple music roots, using Mutagen tags
+  and Amazon identity detection.
+- **Now Playing shortcut** that reads the current MPRIS track only when clicked.
+- **Trusted LAN access** with a desktop-only pairing code, hashed device
+  credentials, CSRF protection, and subnet enforcement.
+- **Useful settings** for System/Light/Dark themes, download location, library
+  status, application paths, and library counts.
+- **Safe operations**: verified database backups, migrations, systemd helpers,
+  a data-preserving uninstaller, and a repeat-safe legacy queue import.
 
 ## Requirements
 
-- 64-bit Linux: Ubuntu 22.04 LTS and newer, or rolling Arch Linux
-- [`uv`](https://docs.astral.sh/uv/) for the isolated runtime
-- `bash`, `curl`, and `sha256sum` for release installation
-- Playwright Chromium for SpotUI's Amazon adapter (`spotui deps check`)
-- For album/editorial-playlist details and downloads, the managed `lucidadl`
-  environment plus its Cloudflare setup (`lucida setup`). Run
-  `spotui deps install` explicitly; startup never installs anything.
-- Optional: `playerctl` and a running MPRIS-compatible media player for the
-  Now Playing shortcut. Missing `playerctl` or no active player is reported as
-  an availability state and never blocks startup, search, or downloads.
-- Internet access to public Spotify embed pages and Amazon Music for imports.
-  Spotify import uses public album/playlist pages only; no Spotify login,
-  OAuth token, or API key is required.
+- 64-bit Linux — Ubuntu 22.04 LTS or newer, or rolling Arch Linux. x86_64 is
+  tested.
+- [`uv`](https://docs.astral.sh/uv/) for SpotUI's isolated Python environment.
+- Node.js and npm for source frontend builds only.
+- Internet access for Amazon Music, Spotify imports, and dependency installs.
+- Optional: `playerctl` and an MPRIS-compatible player for Now Playing.
 
-SpotUI itself runs from a uv-managed environment. It never modifies system
-Python. `lucidadl` is managed in a separate environment under the SpotUI data
-directory; album/editorial-playlist resolution calls it through a packaged
-subprocess bridge. Node.js is needed only to build the frontend, not to run the
-installed application.
+Playwright Chromium and `lucidadl` are installed explicitly with
+`spotui deps install`. SpotUI never starts by installing or updating anything,
+and it never modifies system Python.
 
-## Installation
+## Quick start
 
-Release installs use the isolated environment and register `~/.local/bin/spotui`.
-Download and verify the installer from the tagged release, then:
+### From source
+
+```bash
+git clone https://github.com/runtime-terror404/spotui.git
+cd spotui
+uv sync --all-groups
+(cd frontend && npm ci && npm run build)
+uv run spotui db upgrade
+uv run spotui deps install
+uv run spotui deps check
+uv run spotui serve
+```
+
+Open <http://127.0.0.1:8765/>.
+
+Album and editorial-playlist support may require the downloader's one-time
+Cloudflare setup. Run `spotui deps check` to find the managed executable, then
+follow [`docs/installation.md`](docs/installation.md) for the setup command and
+platform libraries.
+
+For frontend development, keep the backend running on port 8765 and start Vite
+in another terminal:
+
+```bash
+cd frontend
+npm run dev
+```
+
+Vite proxies `/api` to the backend.
+
+### From a release
 
 ```bash
 VERSION=0.1.0
@@ -62,9 +130,9 @@ chmod +x install.sh uninstall.sh
 ./install.sh --version "$VERSION"
 ```
 
-The installer verifies the wheel against the release checksum, applies database
-migrations after backing up an existing database, and is safe to re-run. It
-does not install the downloader or start the server. Then run explicitly:
+The installer creates the isolated environment, registers
+`~/.local/bin/spotui`, and applies migrations. It is re-runnable, does not
+install the downloader, and does not start the server. Finish with:
 
 ```bash
 spotui deps install
@@ -77,116 +145,74 @@ Optional systemd user service:
 ```bash
 spotui service install
 spotui service enable
+spotui service status
 ```
 
-Import the old JSON queue, if present, with a dry run first:
-
-```bash
-spotui migrate-legacy --dry-run
-spotui migrate-legacy --yes
-```
-
-Updates are manual: stop the service, rerun `install.sh` with the new
-`--version`, and use `spotui deps upgrade` only when release notes require it.
-Create a verified backup with `spotui db backup`; migrations also back up an
-existing database automatically. `scripts/uninstall.sh` removes installed code
-and the service while preserving configuration, database, logs, caches,
-downloader environment, library roots, and music. Add `--purge-data` to remove
-SpotUI-owned data explicitly.
-
-See [`docs/installation.md`](docs/installation.md) for platform packages,
-backup/restore and rollback boundaries, legacy migration rules, and full
-update/uninstall instructions. Release engineering is documented in
-[`docs/release-process.md`](docs/release-process.md).
-
-## Development quick start
-
-```bash
-uv sync --all-groups
-(cd frontend && npm ci && npm run build)
-uv run spotui db upgrade
-uv run spotui serve
-```
-
-Then open <http://127.0.0.1:8765/>. If `src/spotui/web/dist/` has not been
-built, the server serves the packaged placeholder instead. The default listener
-is loopback-only. A LAN listener is added only after `server.trusted_subnet` is
-configured and a matching active IPv4 interface exists; SpotUI never binds
-`0.0.0.0`.
-
-For frontend iteration, run the backend on port 8765 and `npm run dev` in
-`frontend/`; Vite proxies `/api` to the backend.
-
-```bash
-uv run spotui status            # effective paths, URLs, lock and health state
-uv run spotui db current        # applied migration revision
-uv run spotui db backup         # verified backup before maintenance
-uv run spotui migrate-legacy --dry-run
-uv run spotui deps check        # SpotUI browser plus managed lucidadl status
-uv run spotui deps install      # explicit install/reconcile of pinned dependencies
-uv run pytest
-uv run ruff check .
-(cd frontend && npm test && npm run typecheck && npm run build)
-```
-
-API routes:
+## How it works
 
 ```text
-GET  /api/v1/health
-GET  /api/v1/system/info
-GET  /api/v1/search?q=...
-GET  /api/v1/entities/detail?url=...
-GET  /api/v1/now-playing
-GET  /api/v1/library
-POST /api/v1/library/scan
-GET  /api/v1/imports
-POST /api/v1/imports
-GET  /api/v1/imports/{id}
-GET  /api/v1/imports/{id}/events        # server-sent revisions
-POST /api/v1/imports/{id}/pause
-POST /api/v1/imports/{id}/resume
-POST /api/v1/imports/{id}/cancel
-DELETE /api/v1/imports/{id}
-POST /api/v1/imports/{id}/sources/{source_id}/select
-POST /api/v1/imports/{id}/sources/{source_id}/skip
-POST /api/v1/imports/{id}/sources/{source_id}/search
-POST /api/v1/imports/{id}/enqueue
-GET  /api/v1/auth/status
-POST /api/v1/auth/pair
-GET  /api/v1/devices/pairing             # desktop/loopback only
-GET  /api/v1/devices                     # desktop/loopback only
-DELETE /api/v1/devices/{device_id}       # desktop/loopback only
-GET  /api/v1/queue
-GET  /api/v1/queue/jobs/{id}
-POST /api/v1/queue/jobs
-POST /api/v1/queue/batch
-POST /api/v1/queue/jobs/{id}/cancel
-POST /api/v1/queue/jobs/{id}/retry
-DELETE /api/v1/queue/jobs/{id}          # remove a waiting or finished job
+React 19 + TypeScript
+          │ REST + SSE
+          ▼
+    FastAPI /api/v1
+          │
+  ┌───────┼─────────────────────────────┐
+  ▼       ▼                             ▼
+SQLite   Amazon Music / Spotify     lucidadl
+queue,   providers                  managed downloads
+library,
+devices
 ```
 
-Interactive OpenAPI documentation is available at `/docs` in development.
-Import updates use SSE and authoritative REST refreshes. Queue and library-scan
-updates currently use polling; broader SSE integration is planned for a later
-phase.
+SQLite and the REST API are authoritative. One worker owns exactly one
+`lucidadl` process at a time. Imports report progress through SSE; queue and
+library updates currently use polling.
 
-State-changing API requests use a double-submit CSRF check. A normal browser is
-primed by the app bootstrap; scripts must first request a safe GET (for example
-`/api/v1/auth/status`), retain the `spotui_csrf` cookie, echo it in
-`X-CSRF-Token`, and include the `spotui_device` cookie when using the LAN
-listener. The device credential is `HttpOnly`, `SameSite=Strict`, and persists
-for one year; only its SHA-256 hash is stored in SQLite.
+## Usage
+
+1. **Search** for a track, album, artist, or playlist.
+2. **Open a result** to inspect its artwork and track list.
+3. **Add tracks** individually or in bulk.
+4. **Watch the queue** for phase and progress updates.
+5. **Review failures** under Needs attention and retry or dismiss them.
+
+Cancelled waiting jobs leave the queue immediately and do not enter history.
+Failed or interrupted jobs can be retried or dismissed with the X action.
+History shows the newest 50 completed downloads; the Completed count still
+covers every stored job.
+
+To import music from Spotify, open **Imports**, paste a public album or playlist
+URL, review the Amazon matches, and enqueue only the tracks you select. SpotUI
+never auto-selects a match.
+
+## Phone access
+
+LAN access is disabled until `server.trusted_subnet` is set in `config.toml` and
+an active local IPv4 interface matches that CIDR. SpotUI binds loopback plus
+that exact interface; it never binds `0.0.0.0`.
+
+1. Configure your home subnet and restart SpotUI.
+2. Run `spotui status` to confirm the LAN URL.
+3. Open **Settings** on the desktop to see the URL and pairing code.
+4. Open the LAN URL on your phone and enter the six-digit code.
+
+Pairing codes change on restart. Paired devices survive restarts until revoked
+from desktop Settings, and pairing attempts are rate-limited.
+
+> [!WARNING]
+> LAN traffic is plain HTTP and is **not encrypted**. Never expose SpotUI to the
+> public internet, forward its port from your router, or use it on untrusted
+> Wi-Fi. A DHCP reservation for the server's LAN address is recommended.
 
 ## Configuration
 
-All application-owned files live under one root:
-`~/.local/share/spotui/` by default. Configuration is read from
-`<root>/config.toml`, which is `~/.local/share/spotui/config.toml` with the
-default root. Set `SPOTUI_HOME` to an absolute dedicated directory to relocate
-the whole root, including configuration, database, logs, cache, lock, backups,
-and managed environments. Precedence for settings is defaults → config file →
-`SPOTUI_*` environment variables → CLI flags. Invalid ports, CIDRs, or log
-settings fail startup with an actionable message.
+All application-owned files live under one root, by default
+`~/.local/share/spotui/`. Configuration is read from `<root>/config.toml`. Set
+`SPOTUI_HOME` to an absolute directory to move the entire root, including the
+database, logs, cache, lock, backups, and managed environments.
+
+Precedence is: defaults → config file → `SPOTUI_*` environment variables → CLI
+flags. Invalid settings fail startup with an actionable message.
 
 ```toml
 [server]
@@ -215,144 +241,102 @@ scan_on_startup = true
 concurrency = 3  # bounded Amazon searches per active import, range 1–5
 ```
 
+Common environment overrides include `SPOTUI_HOME`, `SPOTUI_CONFIG`,
+`SPOTUI_PORT`, `SPOTUI_TRUSTED_SUBNET`, and `SPOTUI_LIBRARY_ROOTS` (OS path
+separator-delimited absolute directories).
+
 Library roots are configured explicitly; SpotUI does not infer them from
-`lucidadl`. In-library badges and batch skipping remain disabled until at least
-one root is configured.
+`lucidadl`. In-library badges and batch skipping stay disabled until a root is
+configured.
 
-Supported environment overrides are `SPOTUI_PORT`, `SPOTUI_TRUSTED_SUBNET`,
-`SPOTUI_SHUTDOWN_GRACE_SECONDS`, `SPOTUI_LOG_LEVEL`, `SPOTUI_LOG_MAX_BYTES`,
-`SPOTUI_LOG_BACKUP_COUNT`, `SPOTUI_CANCEL_GRACE_SECONDS`,
-`SPOTUI_QUEUE_SHUTDOWN_GRACE_SECONDS`, `SPOTUI_JOB_TIMEOUT_SECONDS`,
-`SPOTUI_LIBRARY_ROOTS` (OS path separator-delimited absolute directories),
-`SPOTUI_LIBRARY_REFRESH_SECONDS`, `SPOTUI_LIBRARY_SCAN_ON_STARTUP`,
-`SPOTUI_MATCHING_CONCURRENCY`, `SPOTUI_HOME` (absolute application root), and
-`SPOTUI_CONFIG` (config file path).
-
-## Data locations
-
-**Root:** `~/.local/share/spotui/` (parent selected by `XDG_DATA_HOME`;
-override the complete path with `SPOTUI_HOME`).
+### Data locations
 
 | Data | Default under the root |
 |---|---|
 | Configuration | `config.toml` |
 | Database | `spotui.sqlite3` (plus `-wal`/`-shm`) |
-| Database backups | `backups/` |
-| Logs and rotations | `logs/spotui.log` |
+| Backups | `backups/` |
+| Logs | `logs/spotui.log` |
 | Cache | `cache/` |
-| Lock file | `run/server-<root-hash>.lock` |
+| Lock | `run/server-<root-hash>.lock` |
 | Managed environments | `envs/{spotui,lucidadl}/` |
-| Legacy JSON queue | `queue.json` — read-only |
+| Legacy queue | `queue.json` — read-only |
 
-Two optional integration files remain outside the root because the OS requires
-fixed locations: the PATH launcher (`~/.local/bin/spotui`, or `XDG_BIN_HOME`)
-and the systemd user unit (`~/.config/systemd/user/spotui.service`).
-Downloaded media stays at the destination configured in `lucidadl`; SpotUI does
-not move or modify existing media. Library roots are a separate, read-only
-setting.
+The PATH launcher (`~/.local/bin/spotui`) and optional systemd unit
+(`~/.config/systemd/user/spotui.service`) remain outside the root because the
+OS requires fixed locations. Downloaded media stays at the destination
+configured in `lucidadl`; SpotUI never moves or modifies existing media.
 
-## Trusted LAN access and pairing
+## Maintenance
 
-LAN access is off unless `server.trusted_subnet` is set and an active local IPv4
-interface falls inside that CIDR. SpotUI then serves loopback plus that exact
-interface address; it never binds `0.0.0.0`. If no matching interface exists,
-localhost remains available and `spotui status` reports LAN as unavailable.
+```bash
+spotui status            # paths, URLs, lock, and health state
+spotui db current        # applied migration revision
+spotui db backup         # verified backup before maintenance
+spotui deps check        # browser and managed lucidadl status
+spotui migrate-legacy --dry-run
+```
 
-To pair a phone:
+Import an old JSON queue only after a dry run. The source file is never
+modified, repeat runs do not duplicate jobs, and active legacy jobs become
+`interrupted`.
 
-1. Open SpotUI on the desktop at <http://127.0.0.1:8765/> and go to Settings.
-2. Note the LAN URL and current six-digit pairing code.
-3. Open the LAN URL on the phone while connected to the trusted home network.
-4. Enter the code; the browser receives a persistent paired-device cookie.
+Updates are manual: stop the service, rerun `install.sh` with the new version,
+and use `spotui deps upgrade` only when release notes require it. Normal
+uninstalls preserve configuration, database, logs, downloader environment,
+library roots, and music. See [`docs/installation.md`](docs/installation.md) for
+updates, backups, rollback, migration details, and full uninstall.
 
-The code changes on every server restart. Paired devices survive restarts until
-revoked from desktop Settings. Pairing attempts are rate-limited per source and
-globally. Device IP addresses are displayed for diagnostics only and are never
-used as authentication.
+## API
 
-LAN traffic is plain HTTP and is **not encrypted**. Do not forward the port
-from your router, expose SpotUI to the public Internet, or use it on untrusted
-Wi‑Fi. The persistent cookie intentionally omits the `Secure` attribute so it
-can work over this plain-HTTP LAN mode. Use a DHCP reservation for the server's
-LAN address; cookies are scoped to the host used in the browser, so opening a
-different IP may require pairing again. Host and Origin validation, CSRF
-protection, and the trusted-subnet source check remain enforced.
+The API lives under `/api/v1`; OpenAPI documentation is available at `/docs` in
+development.
 
-## Architecture
+| Area | Primary endpoints |
+|---|---|
+| Health and system | `GET /health`, `GET /system/info` |
+| Catalog | `GET /search`, `GET /entities/detail`, `GET /now-playing` |
+| Queue | `GET /queue`, `POST /queue/jobs`, `POST /queue/batch` |
+| Imports | `GET/POST /imports`, `GET /imports/{id}/events`, matching actions, `POST /imports/{id}/enqueue` |
+| Library | `GET /library`, `POST /library/scan` |
+| Access | `GET /auth/status`, `POST /auth/pair`, `GET/DELETE /devices` |
 
-- API routes under `/api/v1` validate contracts and call services.
-- API errors use RFC 9457 `application/problem+json` with stable `code` and
-  `request_id` extensions; request IDs also appear in redacted logs.
-- Services own use cases; provider adapters wrap Amazon, Spotify, the
-  downloader, MPRIS, and audio tags.
-- Amazon search, artist, and community-playlist reads use one serialized
-  Playwright browser thread. Album/editorial-playlist detail uses the managed
-  `lucidadl` environment through a JSON subprocess bridge.
-- The frontend is React + TypeScript + Vite with TanStack Query for server
-  state and Zustand for client-only view state. The production build writes to
-  `src/spotui/web/dist/` and is bundled into the wheel/sdist.
-- SQLAlchemy/Alembic owns persistence; Pydantic schemas are separate.
-- One in-process download worker owns exactly one managed `lucidadl` process at
-  a time. Jobs and attempts persist in SQLite; active jobs interrupted by a
-  restart become `interrupted` and require explicit Retry. Cancellation signals
-  only the owned process group and never deletes partial output. Because
-  `lucidadl` reports both dedup hits and unresolved tracks as "skipped", only
-  its explicit already-downloaded skip counts as completed; not-found and
-  unexplained skips are failures with actionable errors.
-- The durable library index scans configured read-only roots into SQLite. A
-  background scanner supports startup, periodic, and API-triggered refreshes.
-  It reads Mutagen tags, falls back to filenames, extracts Amazon track identity
-  from lucida's source-URL comments, and never writes to media files. Missing
-  roots are reported as unavailable while preserving their previous index.
-  Track annotations distinguish exact Amazon matches from likely
-  title/artist matches, and batch downloads skip only confirmed matches.
-- Now Playing reads MPRIS metadata through an adapter. It detects players with
-  `playerctl -l`, prefers Spotify-compatible players, and returns an explicit
-  non-fatal availability state when `playerctl` or a player is absent. Set
-  `SPOTUI_MPRIS_PLAYER` (legacy: `SPOTGRAB_PLAYER`) to force a player name.
-  The icon-only header button reads the player only when clicked, then searches
-  Amazon by the current track title; it does not poll in the background or
-  retain stale track text in the button.
-- Spotify imports validate public album/playlist hosts and bounded redirects,
-  then read the public embed page. Source occurrences retain order, position,
-  and duplicates. One active import owns the matching slot; a bounded worker
-  searches Amazon progressively and never auto-selects a candidate. Pause,
-  resume, cancellation, manual search, explicit selection, skip, and
-  add-selected actions are persisted. Add-selected is idempotent, blocks
-  duplicate active Amazon jobs, and warns about library matches before an
-  explicit override. Per-import SSE carries revision numbers; the React client
-  refreshes authoritative state from REST.
-- Loopback and LAN listeners share the same app, worker, and database. LAN
-  requests are accepted only from the configured subnet and a matching local
-  interface, require Host/Origin and CSRF checks, and need a paired-device
-  cookie. Pairing codes exist only in memory and are exposed only through
-  loopback Settings; credential hashes persist in SQLite.
-- Settings exposes read-only application, downloader, and library information
-  plus a browser-local System/Light/Dark theme preference. It does not edit
-  server configuration. Queue rows are compact outside the active section:
-  status is conveyed by the leading icon, completed rows show the downloaded
-  filename, and waiting/history metadata is summarized as title | artist.
-- REST and SQLite are authoritative; the queue UI polls every 1.5 seconds while
-  work is active and every 10 seconds when idle, with broader SSE planned for a
-  later phase. The compact side panel drops cancelled jobs immediately and
-  completed jobs three seconds after completion. The X action removes waiting
-  jobs without creating history and dismisses failed/interrupted jobs; a retry
-  remains available for failures. The Queue page shows only the latest 50
-  completed history rows while Completed remains an SQL aggregate over all
-  persisted jobs. The snapshot returns up to 500 recent jobs. Successful HTTP
-  access logs are emitted at `DEBUG`; slow requests (over two seconds) and
-  server errors remain visible at `INFO`/`ERROR`, so set
-  `logging.level = "DEBUG"` only when full request tracing is needed.
-- The legacy JSON queue migration is read-only toward the source file and uses
-  a per-record ledger for repeat-safe imports. Active legacy jobs become
-  `interrupted`; unknown or malformed records are reported and skipped.
-- Database upgrades refuse while a server holds the process lock and create a
-  verified online SQLite backup before changing schema. The application version
-  has one Python source of truth and is checked against the frontend package.
-- Install and uninstall scripts operate only on the managed uv environment,
-  launcher, and optional systemd user unit. Normal uninstall preserves user
-  configuration, database, logs, downloader environment, and media.
+State-changing requests require a double-submit CSRF token. The app bootstrap
+primes the `spotui_csrf` cookie; scripts must retain it and send it in
+`X-CSRF-Token`. LAN requests also require the persistent `spotui_device` cookie.
+API errors use RFC 9457 `application/problem+json` with stable `code` and
+`request_id` values.
 
-See [`refactor.md`](refactor.md) for the full phase plan and acceptance gates.
-CI, release, and artifact verification steps are in
-[`docs/release-process.md`](docs/release-process.md).
+## Development
+
+```bash
+uv sync --all-groups
+uv run spotui db upgrade
+uv run spotui serve
+
+# Second terminal
+(cd frontend && npm run dev)
+
+# Checks
+uv run pytest
+uv run ruff check .
+uv lock --check
+(cd frontend && npm test && npm run typecheck && npm run build)
+```
+
+The production frontend build is written to `src/spotui/web/dist/` and bundled
+into the wheel and source distribution. Python and frontend versions are checked
+against a single Python source of truth.
+
+## Known limitations
+
+- Linux is the only supported platform; x86_64 is tested.
+- LAN mode is plain HTTP and restricted to a trusted subnet.
+- Queue and library updates use polling; imports use SSE.
+- Imported Spotify tracks require explicit Amazon matching.
+
+## Documentation
+
+- [Installation and maintenance](docs/installation.md)
+- [Release process](docs/release-process.md)
+- [Baseline audit and verification](docs/baseline-audit.md)

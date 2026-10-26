@@ -2433,6 +2433,10 @@ p {
   font-size: 12px;
 }
 
+.settings-warning span {
+  line-height: 1.55;
+}
+
 .settings-help,
 .settings-note {
   color: var(--color-text-secondary);

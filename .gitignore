@@ -1,6 +1,5 @@
 # Claude Code session data
 .claude/
-session.txt
 
 # Local scratch/dotfiles copied into the repository root (not SpotUI source)
 /.bash_profile
@@ -42,9 +41,6 @@ htmlcov/
 *.sqlite3-wal
 *.sqlite3-journal
 
-# Previous frontend snapshots retained for rollback (local only)
-/frontend_0.*/
-
 # Frontend build output and test artifacts (generated)
 frontend/node_modules/
 frontend/dist/
@@ -55,15 +51,5 @@ frontend-e2e/test-results/
 frontend-e2e/playwright-report/
 src/spotui/web/dist/
 
-# v0 snapshot (read-only reference)
-v0/
-
-/handoff.md
-/new_ui.md
-/readme_lucidiadl.md
-/readme_v0.md
-/refactor.md
-/v0_architecture.md
-session.txt
-spotui-frontend-redesign_0.1.2.zip
-spotui-frontend-redesign_0.1.1.zip
+# Local scratch archive (legacy reference implementation and old notes)
+scrap/

@@ -110,6 +110,11 @@ describe("SettingsPage", () => {
     expect(screen.getByText("12")).toBeInTheDocument();
     expect(screen.getAllByText("/mnt/Shared/Music").length).toBeGreaterThan(0);
     expect(screen.getByText("SpotUI 0.1.0")).toBeInTheDocument();
+    expect(screen.getByText("About & legal")).toBeInTheDocument();
+    expect(screen.getByText("Use at your own risk.")).toBeInTheDocument();
+    expect(
+      screen.getByText(/does not provide, host, or distribute music/),
+    ).toBeInTheDocument();
     expect(screen.getByRole("radio", { name: "System" })).toBeChecked();
 
     await user.click(screen.getByRole("radio", { name: "Dark" }));

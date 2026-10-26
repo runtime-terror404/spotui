@@ -1,19 +1,19 @@
 # Baseline Audit and Phase 0 Record
 
-**Audit date:** 2026-10-26  
-**Reference implementation:** `v0/` (immutable, read-only)  
-**Architecture authority:** [`refactor.md`](../refactor.md)
+- **Audit date:** 2026-10-26
+- **Reference implementation:** `scrap/v0/` (immutable, read-only)
+- **Architecture authority:** `scrap/refactor.md`
 
 This record captures the observed starting point for the refactor. It does not
 restate the target architecture or add requirements. Behavioral detail remains
-in [`v0_architecture.md`](../v0_architecture.md) and
-[`handoff.md`](../handoff.md); the approved visual design is
-[`new_ui.md`](../new_ui.md).
+in `scrap/v0_architecture.md` and `scrap/handoff.md`; the approved visual design
+is `scrap/new_ui.md`. The legacy tree and reference notes are intentionally kept
+outside version control under the local `scrap/` directory.
 
 ## 1. Source inventory
 
-`v0/` is gitignored and was untracked at audit time. None of these files were
-modified during this phase.
+`v0/` was gitignored and untracked at audit time; it has since been archived at
+`scrap/v0/`. None of these files were modified during this phase.
 
 | File | Lines | SHA-256 | Parse check |
 |---|---:|---|---|
@@ -79,7 +79,7 @@ documented migration phase.
 | Node / npm | 26.12.0 / 12.2.1 (not used by the backend) |
 | SQLite | 3.54.0 |
 | pytest (system) | 9.1.1 |
-| lucidadl | 1.0.0 in `/home/divine/.local/share/pipx/venvs/lucidadl` |
+| lucidadl | 1.0.0 in `~/.local/share/pipx/venvs/lucidadl` |
 | Playwright in lucidadl env | 1.62.0 |
 | mutagen in lucidadl env | 1.48.1 |
 | Playwright Chromium cache | `~/.cache/ms-playwright/chromium-{1234,1248}` and headless shells |
@@ -428,17 +428,17 @@ application and automation layers:
   seconds to 10 seconds. This avoids console/log-file noise and side-panel
   clutter without hiding failures or active queue updates.
 - The supplied visual redesign was applied after preserving the previous
-  frontend as the gitignored `frontend_0.1.0/` directory. The redesign adds the
-  brand mark, favicon, brand styling layer, and refreshed navigation, search,
-  and pairing surfaces. The FastAPI shell serves `/favicon.png`, including for
+  frontend as the `scrap/frontend_0.1.0/` directory. The redesign adds the brand
+  mark, favicon, brand styling layer, and refreshed navigation, search, and
+  pairing surfaces. The FastAPI shell serves `/favicon.png`, including for
   unpaired LAN browsers. Desktop and mobile renders were exercised with
   Playwright: no console errors, no horizontal overflow, and all images loaded.
 - The second redesign iteration was re-applied as the active frontend after the
-  first redesign was retained as the gitignored `frontend_0.1.1/` directory
-  alongside the original `frontend_0.1.0/`. The active version includes the
-  aurora background, floating chrome, immersive detail hero, and animated home
-  screen mark. It was re-rendered at desktop and mobile widths with no console
-  errors or horizontal overflow.
+  first redesign was retained as `scrap/frontend_0.1.1/` alongside
+  `scrap/frontend_0.1.0/`. The active version includes the aurora background,
+  floating chrome, immersive detail hero, and animated home screen mark. It was
+  re-rendered at desktop and mobile widths with no console errors or horizontal
+  overflow.
 - Live Amazon checks exposed and fixed two detail-view defects:
   `lucidadl` returns album/playlist cover artwork as a size-ladder list, which
   the parser previously dropped; it now selects a moderate image for the hero

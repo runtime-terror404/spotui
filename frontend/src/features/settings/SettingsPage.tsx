@@ -323,6 +323,26 @@ export function SettingsPage() {
         </section>
       ) : null}
 
+      <section className="settings-panel" aria-label="About and legal">
+        <SectionHeading title="About & legal" />
+        <div className="settings-warning" role="note">
+          <strong>Use at your own risk.</strong>
+          <span>
+            SpotUI is an independent, local interface and does not provide,
+            host, or distribute music. It is not affiliated with Amazon Music,
+            Spotify, or lucidadl. Downloading or converting content may be
+            restricted by copyright law, service terms, or regional rules.
+          </span>
+          <span>
+            Use SpotUI only with content you have the legal right to access and
+            download. You are responsible for complying with applicable laws
+            and agreements. To the extent permitted by law, the project authors
+            accept no responsibility for misuse. This notice is not legal
+            advice.
+          </span>
+        </div>
+      </section>
+
       <ConfirmDialog
         open={deviceToRevoke !== null}
         title="Revoke this paired device?"
