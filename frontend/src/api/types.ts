@@ -5,13 +5,16 @@ export type CatalogKind =
   | "playlist"
   | "community_playlist";
 
+export type LibraryMatch = "exact" | "likely";
+
 export interface CatalogItem {
   title: string;
   subtitle: string;
   url: string;
   kind: CatalogKind;
   image?: string;
-  in_library?: boolean;
+  in_library?: boolean | null;
+  library_match?: LibraryMatch | null;
 }
 
 export interface SearchSection {
@@ -30,7 +33,8 @@ export interface TrackResult {
   artist: string;
   url: string;
   image?: string;
-  in_library?: boolean;
+  in_library?: boolean | null;
+  library_match?: LibraryMatch | null;
 }
 
 export interface AlbumResult {

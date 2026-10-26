@@ -13,6 +13,7 @@ authors = [{ name = "SpotUI contributors" }]
 dependencies = [
     "alembic>=1.13",
     "fastapi>=0.115",
+    "mutagen>=1.47",
     "playwright>=1.40",
     "pydantic>=2.8",
     "sqlalchemy>=2.0.30",

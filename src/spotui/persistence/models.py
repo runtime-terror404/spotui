@@ -9,6 +9,8 @@ from __future__ import annotations
 import time
 
 from sqlalchemy import (
+    BigInteger,
+    Boolean,
     CheckConstraint,
     Float,
     ForeignKey,
@@ -26,6 +28,7 @@ from spotui.domain.jobs import (
     JobState,
     active_states_sql,
 )
+from spotui.domain.library import LibraryMetadataSource, LibraryScanStatus
 
 NAMING_CONVENTION = {
     "ix": "ix_%(column_0_label)s",
@@ -46,6 +49,10 @@ def _utc_epoch() -> int:
 
 _STATE_VALUES_SQL = ", ".join(f"'{state.value}'" for state in JobState)
 _TERMINAL_VALUES_SQL = ", ".join(f"'{state.value}'" for state in TERMINAL_JOB_STATES)
+_SCAN_STATUS_VALUES_SQL = ", ".join(f"'{state.value}'" for state in LibraryScanStatus)
+_METADATA_SOURCE_VALUES_SQL = ", ".join(
+    f"'{source.value}'" for source in LibraryMetadataSource
+)
 
 
 class DownloadJob(Base):
@@ -137,4 +144,120 @@ class JobAttempt(Base):
             "job_id",
             "started_at",
         ),
+    )
+
+
+class LibraryRoot(Base):
+    """A configured read-only music root and its current index state."""
+
+    __tablename__ = "library_roots"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    path: Mapped[str] = mapped_column(Text, nullable=False)
+    available: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    index_complete: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    last_checked_at: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    last_scan_at: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    file_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    last_error: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[int] = mapped_column(Integer, nullable=False, default=_utc_epoch)
+    updated_at: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=_utc_epoch, onupdate=_utc_epoch
+    )
+
+    __table_args__ = (
+        Index("ux_library_roots_path", "path", unique=True),
+        CheckConstraint("file_count >= 0", name="file_count_nonnegative"),
+    )
+
+
+class LibraryFile(Base):
+    """One indexed audio file under a configured library root."""
+
+    __tablename__ = "library_files"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    root_id: Mapped[int] = mapped_column(
+        Integer,
+        ForeignKey("library_roots.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    path: Mapped[str] = mapped_column(Text, nullable=False)
+    filename: Mapped[str] = mapped_column(Text, nullable=False)
+    extension: Mapped[str] = mapped_column(String(16), nullable=False)
+    size_bytes: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    modified_at_ns: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    title: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    artist: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    album: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    track_number: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    duration_seconds: Mapped[float | None] = mapped_column(Float, nullable=True)
+    metadata_source: Mapped[str] = mapped_column(String(20), nullable=False)
+    normalized_title: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    normalized_artist: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    amazon_track_key: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    last_seen_scan_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    created_at: Mapped[int] = mapped_column(Integer, nullable=False, default=_utc_epoch)
+    updated_at: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=_utc_epoch, onupdate=_utc_epoch
+    )
+
+    __table_args__ = (
+        Index("ux_library_files_root_path", "root_id", "path", unique=True),
+        CheckConstraint("size_bytes >= 0", name="size_nonnegative"),
+        CheckConstraint("modified_at_ns >= 0", name="modified_nonnegative"),
+        CheckConstraint(
+            "duration_seconds IS NULL OR duration_seconds >= 0",
+            name="duration_nonnegative",
+        ),
+        CheckConstraint(
+            f"metadata_source IN ({_METADATA_SOURCE_VALUES_SQL})",
+            name="metadata_source",
+        ),
+        Index("ix_library_files_normalized_title", "normalized_title"),
+        Index("ix_library_files_amazon_track_key", "amazon_track_key"),
+        Index(
+            "ix_library_files_root_last_seen",
+            "root_id",
+            "last_seen_scan_id",
+        ),
+    )
+
+
+class LibraryScanRun(Base):
+    """The outcome and progress counters for one root scan."""
+
+    __tablename__ = "library_scan_runs"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    root_id: Mapped[int] = mapped_column(
+        Integer,
+        ForeignKey("library_roots.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    status: Mapped[str] = mapped_column(String(20), nullable=False)
+    started_at: Mapped[int] = mapped_column(Integer, nullable=False)
+    finished_at: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    files_seen: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    files_indexed: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    files_removed: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    files_failed: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    error: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+    __table_args__ = (
+        CheckConstraint(
+            f"status IN ({_SCAN_STATUS_VALUES_SQL})",
+            name="status",
+        ),
+        CheckConstraint("files_seen >= 0", name="files_seen_nonnegative"),
+        CheckConstraint("files_indexed >= 0", name="files_indexed_nonnegative"),
+        CheckConstraint("files_removed >= 0", name="files_removed_nonnegative"),
+        CheckConstraint("files_failed >= 0", name="files_failed_nonnegative"),
+        Index(
+            "ux_library_scan_runs_active",
+            "status",
+            unique=True,
+            sqlite_where=text("status = 'running'"),
+        ),
+        Index("ix_library_scan_runs_root_started", "root_id", "started_at"),
     )

@@ -9,6 +9,7 @@ from spotui.domain.catalog import (
     EntityDetail,
     SearchSection,
 )
+from spotui.domain.library import LibraryMatch
 
 
 class CatalogItem(BaseModel):
@@ -20,6 +21,7 @@ class CatalogItem(BaseModel):
     image: str | None = None
     kind: CatalogKind
     in_library: bool | None = None
+    library_match: LibraryMatch | None = None
 
 
 class SearchSectionResult(BaseModel):
@@ -45,6 +47,7 @@ class TrackResult(BaseModel):
     url: str
     image: str | None = None
     in_library: bool | None = None
+    library_match: LibraryMatch | None = None
 
 
 class AlbumResult(BaseModel):
@@ -84,6 +87,7 @@ def search_response(
                         image=item.image,
                         kind=item.kind,
                         in_library=item.in_library,
+                        library_match=item.library_match,
                     )
                     for item in section.items
                 ],
@@ -106,6 +110,7 @@ def entity_detail_response(detail: EntityDetail) -> EntityDetailResult:
                 url=track.url,
                 image=track.image,
                 in_library=track.in_library,
+                library_match=track.library_match,
             )
             for track in detail.tracks
         ],

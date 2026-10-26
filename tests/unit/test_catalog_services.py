@@ -13,6 +13,7 @@ from spotui.domain.catalog import (
     TrackReference,
 )
 from spotui.domain.errors import InvalidSearchQueryError
+from spotui.domain.library import LibraryLookupResult, LibraryMatch
 from spotui.services.container import ApplicationServices
 from spotui.services.entity_details import EntityDetailsService
 from spotui.services.search import SearchService
@@ -78,8 +79,23 @@ class Clock:
 
 
 class EverythingInLibrary:
-    def contains(self, track_url: str, title: str | None = None, artist: str | None = None) -> bool:
-        return True
+    def lookup(
+        self,
+        track_url: str,
+        title: str | None = None,
+        artist: str | None = None,
+    ) -> LibraryLookupResult:
+        return LibraryLookupResult(LibraryMatch.EXACT, True)
+
+
+class IncompleteLibrary:
+    def lookup(
+        self,
+        track_url: str,
+        title: str | None = None,
+        artist: str | None = None,
+    ) -> LibraryLookupResult:
+        return LibraryLookupResult(None, False)
 
 
 def test_search_normalizes_caches_and_expires() -> None:
@@ -128,7 +144,17 @@ def test_search_results_are_annotated_with_library_state() -> None:
     sections = service.search("query")
 
     assert sections[0].items[0].in_library is True
+    assert sections[0].items[0].library_match is LibraryMatch.EXACT
     assert sections[0].items[0].kind is CatalogKind.TRACK
+
+
+def test_incomplete_library_does_not_report_a_track_as_absent() -> None:
+    service = SearchService(FakeCatalog(), library=IncompleteLibrary())
+
+    sections = service.search("query")
+
+    assert sections[0].items[0].in_library is None
+    assert sections[0].items[0].library_match is None
 
 
 def test_detail_tracks_are_annotated_with_library_state() -> None:
@@ -137,6 +163,7 @@ def test_detail_tracks_are_annotated_with_library_state() -> None:
     detail = service.detail("https://music.amazon.in/albums/B001")
 
     assert detail.tracks[0].in_library is True
+    assert detail.tracks[0].library_match is LibraryMatch.EXACT
 
 
 def test_entity_detail_validates_and_dispatches() -> None:

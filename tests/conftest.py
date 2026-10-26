@@ -60,6 +60,9 @@ def isolated_xdg(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> XdgEnvironm
         "SPOTUI_JOB_TIMEOUT_SECONDS",
         "SPOTUI_MPRIS_PLAYER",
         "SPOTGRAB_PLAYER",
+        "SPOTUI_LIBRARY_ROOTS",
+        "SPOTUI_LIBRARY_REFRESH_SECONDS",
+        "SPOTUI_LIBRARY_SCAN_ON_STARTUP",
     ):
         monkeypatch.delenv(key, raising=False)
 

@@ -50,3 +50,7 @@ class QueueUnavailableError(RuntimeError):
 class NowPlayingUnavailableError(RuntimeError):
     """The Now Playing service is not configured."""
 
+
+class LibraryUnavailableError(RuntimeError):
+    """The library index service is not configured."""
+

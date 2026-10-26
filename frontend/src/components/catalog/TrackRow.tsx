@@ -1,4 +1,5 @@
 import type { TrackResult } from "../../api/types";
+import { libraryMatchLabel } from "../../features/catalog/labels";
 import { DownloadIcon } from "../icons";
 import { Artwork } from "../ui/Artwork";
 
@@ -18,6 +19,7 @@ export function TrackRow({
   const downloadLabel = track.in_library
     ? `Download ${track.title} again`
     : `Download ${track.title}`;
+  const matchLabel = libraryMatchLabel(track.library_match);
 
   return (
     <div className="track-row">
@@ -39,7 +41,13 @@ export function TrackRow({
       </div>
       <div className="track-row__actions">
         {track.in_library ? (
-          <span className="library-badge">In library</span>
+          <span
+            className="library-badge"
+            title={matchLabel}
+            aria-label={matchLabel}
+          >
+            In library
+          </span>
         ) : null}
         {onDownload ? (
           <button

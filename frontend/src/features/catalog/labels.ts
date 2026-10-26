@@ -1,4 +1,4 @@
-import type { CatalogKind } from "../../api/types";
+import type { CatalogKind, LibraryMatch } from "../../api/types";
 
 export function kindLabel(kind: CatalogKind): string {
   switch (kind) {
@@ -17,4 +17,14 @@ export function kindLabel(kind: CatalogKind): string {
 
 export function isDetailKind(kind: CatalogKind): boolean {
   return kind !== "track";
+}
+
+export function libraryMatchLabel(match?: LibraryMatch | null): string {
+  if (match === "exact") {
+    return "Exact match in your library";
+  }
+  if (match === "likely") {
+    return "Likely match in your library";
+  }
+  return "In your library";
 }

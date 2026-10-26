@@ -39,6 +39,9 @@ def test_upgrade_from_empty_database(database_url: str) -> None:
         tables = inspect(engine).get_table_names()
         assert "download_jobs" in tables
         assert "job_attempts" in tables
+        assert "library_roots" in tables
+        assert "library_files" in tables
+        assert "library_scan_runs" in tables
     finally:
         engine.dispose()
 
@@ -54,6 +57,9 @@ def test_downgrade_and_reupgrade(database_url: str) -> None:
         tables = inspect(engine).get_table_names()
         assert "download_jobs" not in tables
         assert "job_attempts" not in tables
+        assert "library_roots" not in tables
+        assert "library_files" not in tables
+        assert "library_scan_runs" not in tables
     finally:
         engine.dispose()
 
@@ -122,7 +128,25 @@ def test_upgrade_from_0001_preserves_existing_jobs(database_url: str) -> None:
             title = connection.execute(
                 text("SELECT title FROM download_jobs WHERE id = 'legacyjob'")
             ).scalar_one()
+        tables = inspect(engine).get_table_names()
         assert title == "Song"
-        assert "job_attempts" in inspect(engine).get_table_names()
+        assert "job_attempts" in tables
+        assert "library_roots" in tables
+    finally:
+        engine.dispose()
+
+
+def test_upgrade_from_0002_adds_library_index(database_url: str) -> None:
+    upgrade_database(database_url, "0002_job_attempts")
+
+    upgrade_database(database_url)
+
+    assert current_revision(database_url) == head_revision()
+    engine = create_engine(database_url)
+    try:
+        tables = inspect(engine).get_table_names()
+        assert "library_roots" in tables
+        assert "library_files" in tables
+        assert "library_scan_runs" in tables
     finally:
         engine.dispose()

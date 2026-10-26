@@ -11,6 +11,7 @@ from spotui.domain.catalog import (
     SearchSection,
     TrackReference,
 )
+from spotui.domain.library import LibraryLookupResult, LibraryMatch
 
 DEFAULT_SECTIONS = (
     SearchSection(
@@ -117,14 +118,18 @@ class FakeDownloader:
 @dataclass
 class FakeLibrary:
     in_library: bool = False
+    complete: bool = True
 
-    def contains(
+    def lookup(
         self,
         track_url: str,
         title: str | None = None,
         artist: str | None = None,
-    ) -> bool:
-        return self.in_library
+    ) -> LibraryLookupResult:
+        return LibraryLookupResult(
+            LibraryMatch.LIKELY if self.in_library else None,
+            self.complete,
+        )
 
 
 @dataclass

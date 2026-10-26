@@ -11,15 +11,15 @@ reference and is never imported by the new package.
 
 ## Current status
 
-**Phases 1–5: foundation, search/details, the download queue, and Now
-Playing.** The package, configuration, logging, process lock, SQLite/Alembic
-setup, FastAPI lifecycle, dual-listener foundation, versioned API, RFC 9457
-error contract, Amazon adapters, React search/detail views, persisted download
-queue, managed worker, cancellation/retry/recovery, queue UI, and the optional
-MPRIS current-track shortcut are in place. Spotify import, full library
-indexing, settings, pairing, and SSE remain for later phases. The baseline audit
-and verification evidence are recorded in
-[`docs/baseline-audit.md`](docs/baseline-audit.md).
+**Phases 1–6: foundation, search/details, the download queue, Now Playing,
+and the durable library index.** The package, configuration, logging, process
+lock, SQLite/Alembic setup, FastAPI lifecycle, dual-listener foundation,
+versioned API, RFC 9457 error contract, Amazon adapters, React search/detail
+views, persisted download queue, managed worker,
+cancellation/retry/recovery, queue UI, optional MPRIS current-track shortcut,
+and read-only multi-root library index are in place. Spotify import, settings,
+pairing, and SSE remain for later phases. The baseline audit and verification
+evidence are recorded in [`docs/baseline-audit.md`](docs/baseline-audit.md).
 
 ## Requirements
 
@@ -74,6 +74,8 @@ GET  /api/v1/health
 GET  /api/v1/search?q=...
 GET  /api/v1/entities/detail?url=...
 GET  /api/v1/now-playing
+GET  /api/v1/library
+POST /api/v1/library/scan
 GET  /api/v1/queue
 GET  /api/v1/queue/jobs/{id}
 POST /api/v1/queue/jobs
@@ -83,8 +85,8 @@ POST /api/v1/queue/jobs/{id}/retry
 ```
 
 Interactive OpenAPI documentation is available at `/docs` in development.
-Queue updates currently use short-interval polling; SSE integration is planned
-for a later phase.
+Queue and library-scan updates currently use polling; SSE integration is
+planned for a later phase.
 
 ## Configuration
 
@@ -108,12 +110,24 @@ backup_count = 5
 cancel_grace_seconds = 5.0
 shutdown_grace_seconds = 5.0
 job_timeout_seconds = 900.0
+
+[library]
+# Multiple read-only roots are supported. Existing files are never modified.
+# roots = ["/mnt/Shared/Music", "/mnt/Archive/Music"]
+refresh_seconds = 3600  # 0 disables periodic refresh
+scan_on_startup = true
 ```
+
+Library roots are configured explicitly; SpotUI does not infer them from
+`lucidadl`. In-library badges and batch skipping remain disabled until at least
+one root is configured.
 
 Supported environment overrides are `SPOTUI_PORT`, `SPOTUI_TRUSTED_SUBNET`,
 `SPOTUI_SHUTDOWN_GRACE_SECONDS`, `SPOTUI_LOG_LEVEL`, `SPOTUI_LOG_MAX_BYTES`,
 `SPOTUI_LOG_BACKUP_COUNT`, `SPOTUI_CANCEL_GRACE_SECONDS`,
-`SPOTUI_QUEUE_SHUTDOWN_GRACE_SECONDS`, `SPOTUI_JOB_TIMEOUT_SECONDS`, and
+`SPOTUI_QUEUE_SHUTDOWN_GRACE_SECONDS`, `SPOTUI_JOB_TIMEOUT_SECONDS`,
+`SPOTUI_LIBRARY_ROOTS` (OS path separator-delimited absolute directories),
+`SPOTUI_LIBRARY_REFRESH_SECONDS`, `SPOTUI_LIBRARY_SCAN_ON_STARTUP`, and
 `SPOTUI_CONFIG` (config file path).
 
 ## Data locations
@@ -128,7 +142,8 @@ Supported environment overrides are `SPOTUI_PORT`, `SPOTUI_TRUSTED_SUBNET`,
 | Managed environments | `~/.local/share/spotui/envs/{spotui,lucidadl}/` |
 
 All XDG variables are respected. Downloaded media stays at the destination
-configured in `lucidadl`; SpotUI does not move or modify existing media.
+configured in `lucidadl`; SpotUI does not move or modify existing media. Library
+roots are a separate, read-only setting.
 
 ## Architecture
 
@@ -148,8 +163,13 @@ configured in `lucidadl`; SpotUI does not move or modify existing media.
   a time. Jobs and attempts persist in SQLite; active jobs interrupted by a
   restart become `interrupted` and require explicit Retry. Cancellation signals
   only the owned process group and never deletes partial output.
-- The compatibility library index reads lucidadl's completed `state.json` for
-  in-library badges and batch skipping until the durable library index phase.
+- The durable library index scans configured read-only roots into SQLite. A
+  background scanner supports startup, periodic, and API-triggered refreshes.
+  It reads Mutagen tags, falls back to filenames, extracts Amazon track identity
+  from lucida's source-URL comments, and never writes to media files. Missing
+  roots are reported as unavailable while preserving their previous index.
+  Track annotations distinguish exact Amazon matches from likely
+  title/artist matches, and batch downloads skip only confirmed matches.
 - Now Playing reads MPRIS metadata through an adapter. It detects players with
   `playerctl -l`, prefers Spotify-compatible players, and returns an explicit
   non-fatal availability state when `playerctl` or a player is absent. Set

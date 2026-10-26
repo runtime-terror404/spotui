@@ -65,18 +65,18 @@ class SearchService:
             return sections
         annotated = []
         for section in sections:
-            items = tuple(
-                replace(
-                    item,
-                    in_library=self._library.contains(
-                        item.url,
-                        item.title,
-                        item.subtitle,
-                    ),
+            items = []
+            for item in section.items:
+                if item.kind is not CatalogKind.TRACK:
+                    items.append(item)
+                    continue
+                lookup = self._library.lookup(item.url, item.title, item.subtitle)
+                items.append(
+                    replace(
+                        item,
+                        in_library=lookup.in_library,
+                        library_match=lookup.match,
+                    )
                 )
-                if item.kind is CatalogKind.TRACK
-                else item
-                for item in section.items
-            )
-            annotated.append(replace(section, items=items))
+            annotated.append(replace(section, items=tuple(items)))
         return tuple(annotated)

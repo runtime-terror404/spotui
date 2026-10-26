@@ -18,7 +18,7 @@ import ipaddress
 import logging
 import os
 import tomllib
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from pathlib import Path
 from typing import Any
 
@@ -83,15 +83,68 @@ class QueueSettings(BaseModel):
     job_timeout_seconds: float = Field(default=900.0, ge=10.0, le=7200.0)
 
 
+def _normalize_library_roots(value: object) -> tuple[str, ...]:
+    if value is None:
+        return ()
+    if isinstance(value, str) or not isinstance(value, (list, tuple)):
+        raise ValueError("library roots must be a list of absolute directory paths")
+    roots: list[str] = []
+    seen: set[str] = set()
+    for item in value:
+        if not isinstance(item, str) or not item.strip():
+            raise ValueError("library roots must be non-empty directory paths")
+        expanded = Path(item.strip()).expanduser()
+        if not expanded.is_absolute():
+            raise ValueError(f"library root must be an absolute path: {item}")
+        try:
+            canonical = str(expanded.resolve(strict=False))
+        except (OSError, RuntimeError) as exc:
+            raise ValueError(f"library root cannot be resolved: {item}: {exc}") from exc
+        if canonical in seen:
+            raise ValueError(f"duplicate library root: {canonical}")
+        if expanded.exists() and not expanded.is_dir():
+            raise ValueError(f"library root is not a directory: {canonical}")
+        seen.add(canonical)
+        roots.append(canonical)
+    return tuple(roots)
+
+
+class LibrarySettings(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    roots: tuple[str, ...] = ()
+    refresh_seconds: int = Field(default=3600, ge=0, le=86400)
+    scan_on_startup: bool = True
+
+    @field_validator("roots", mode="before")
+    @classmethod
+    def _validate_roots(cls, value: object) -> tuple[str, ...]:
+        return _normalize_library_roots(value)
+
+
 class AppConfig(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
     server: ServerSettings = Field(default_factory=ServerSettings)
     logging: LoggingSettings = Field(default_factory=LoggingSettings)
     queue: QueueSettings = Field(default_factory=QueueSettings)
+    library: LibrarySettings = Field(default_factory=LibrarySettings)
 
 
-_ENV_SETTINGS: dict[str, tuple[str, str, type[Any]]] = {
+def _parse_environment_bool(value: str) -> bool:
+    normalized = value.strip().casefold()
+    if normalized in {"1", "true", "yes", "on"}:
+        return True
+    if normalized in {"0", "false", "no", "off"}:
+        return False
+    raise ValueError("expected true or false")
+
+
+def _parse_environment_roots(value: str) -> tuple[str, ...]:
+    return tuple(part.strip() for part in value.split(os.pathsep) if part.strip())
+
+
+_ENV_SETTINGS: dict[str, tuple[str, str, Callable[[str], Any]]] = {
     "SPOTUI_PORT": ("server", "port", int),
     "SPOTUI_TRUSTED_SUBNET": ("server", "trusted_subnet", str),
     "SPOTUI_SHUTDOWN_GRACE_SECONDS": ("server", "shutdown_grace_seconds", float),
@@ -101,6 +154,13 @@ _ENV_SETTINGS: dict[str, tuple[str, str, type[Any]]] = {
     "SPOTUI_CANCEL_GRACE_SECONDS": ("queue", "cancel_grace_seconds", float),
     "SPOTUI_QUEUE_SHUTDOWN_GRACE_SECONDS": ("queue", "shutdown_grace_seconds", float),
     "SPOTUI_JOB_TIMEOUT_SECONDS": ("queue", "job_timeout_seconds", float),
+    "SPOTUI_LIBRARY_ROOTS": ("library", "roots", _parse_environment_roots),
+    "SPOTUI_LIBRARY_REFRESH_SECONDS": ("library", "refresh_seconds", int),
+    "SPOTUI_LIBRARY_SCAN_ON_STARTUP": (
+        "library",
+        "scan_on_startup",
+        _parse_environment_bool,
+    ),
 }
 
 

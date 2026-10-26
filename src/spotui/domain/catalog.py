@@ -9,6 +9,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from enum import StrEnum
 
+from spotui.domain.library import LibraryMatch
+
 
 class CatalogKind(StrEnum):
     ARTIST = "artist"
@@ -36,6 +38,7 @@ class SearchItem:
     image: str | None
     kind: CatalogKind
     in_library: bool | None = None
+    library_match: LibraryMatch | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -52,6 +55,7 @@ class TrackReference:
     url: str
     image: str | None
     in_library: bool | None = None
+    library_match: LibraryMatch | None = None
 
 
 @dataclass(frozen=True, slots=True)

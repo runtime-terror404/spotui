@@ -23,6 +23,7 @@ from spotui.domain.errors import (
     InvalidSearchQueryError,
     JobNotFoundError,
     JobTransitionError,
+    LibraryUnavailableError,
     NowPlayingUnavailableError,
     QueueUnavailableError,
 )
@@ -254,7 +255,7 @@ async def catalog_error_handler(request: Request, exc: CatalogError) -> JSONResp
     )
 
 
-def _queue_failure(
+def _service_failure(
     request: Request,
     exc: Exception,
     *,
@@ -274,7 +275,7 @@ def _queue_failure(
 
 
 async def job_not_found_handler(request: Request, exc: JobNotFoundError) -> JSONResponse:
-    return _queue_failure(
+    return _service_failure(
         request,
         exc,
         status_code=404,
@@ -286,7 +287,7 @@ async def job_not_found_handler(request: Request, exc: JobNotFoundError) -> JSON
 async def job_transition_handler(
     request: Request, exc: JobTransitionError
 ) -> JSONResponse:
-    return _queue_failure(
+    return _service_failure(
         request,
         exc,
         status_code=409,
@@ -298,7 +299,7 @@ async def job_transition_handler(
 async def duplicate_active_job_handler(
     request: Request, exc: DuplicateActiveJobError
 ) -> JSONResponse:
-    return _queue_failure(
+    return _service_failure(
         request,
         exc,
         status_code=409,
@@ -310,7 +311,7 @@ async def duplicate_active_job_handler(
 async def downloader_unavailable_handler(
     request: Request, exc: DownloaderUnavailableError
 ) -> JSONResponse:
-    return _queue_failure(
+    return _service_failure(
         request,
         exc,
         status_code=503,
@@ -322,7 +323,7 @@ async def downloader_unavailable_handler(
 async def queue_unavailable_handler(
     request: Request, exc: QueueUnavailableError
 ) -> JSONResponse:
-    return _queue_failure(
+    return _service_failure(
         request,
         exc,
         status_code=503,
@@ -334,12 +335,24 @@ async def queue_unavailable_handler(
 async def now_playing_unavailable_handler(
     request: Request, exc: NowPlayingUnavailableError
 ) -> JSONResponse:
-    return _queue_failure(
+    return _service_failure(
         request,
         exc,
         status_code=503,
         code=ErrorCode.NOW_PLAYING_UNAVAILABLE,
         title="Now Playing unavailable",
+    )
+
+
+async def library_unavailable_handler(
+    request: Request, exc: LibraryUnavailableError
+) -> JSONResponse:
+    return _service_failure(
+        request,
+        exc,
+        status_code=503,
+        code=ErrorCode.LIBRARY_UNAVAILABLE,
+        title="Library index unavailable",
     )
 
 
@@ -378,4 +391,5 @@ def install_error_handlers(app: FastAPI) -> None:
     app.add_exception_handler(DownloaderUnavailableError, downloader_unavailable_handler)
     app.add_exception_handler(QueueUnavailableError, queue_unavailable_handler)
     app.add_exception_handler(NowPlayingUnavailableError, now_playing_unavailable_handler)
+    app.add_exception_handler(LibraryUnavailableError, library_unavailable_handler)
     app.add_exception_handler(Exception, unhandled_exception_handler)

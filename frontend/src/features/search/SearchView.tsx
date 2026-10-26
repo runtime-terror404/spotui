@@ -59,6 +59,7 @@ function ResultsSection({
               url: item.url,
               image: item.image,
               in_library: item.in_library,
+              library_match: item.library_match,
             };
             return (
               <TrackRow

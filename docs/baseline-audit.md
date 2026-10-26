@@ -152,23 +152,26 @@ test, and a clean-wheel install:
   is covered by injected-interface unit tests, not a live network test.
 - Spotify/Amazon fixtures are not yet captured; routine tests use mocks rather
   than live provider responses.
-- Spotify import/matching, the durable library index, settings, pairing, and
-  the installer are not implemented yet.
+- Spotify import/matching, settings, pairing, and the installer are not
+  implemented yet.
 - `lucidadl` download output capture and the final release pin remain
   outstanding.
 - Live MPRIS reads were exercised against a paused `spotifast` session during
   the clean-install check. Missing `playerctl`, no players, and player errors
   remain covered by tests and are non-fatal.
+- Library roots are configured through TOML/environment settings; the approved
+  UI design has no dedicated library-management screen. Root availability and
+  scan progress are available through the library API.
 - Legacy queue migration, systemd helper, and release automation are later
   phases.
 
-## 8. Phase 2–5 completion
+## 8. Phase 2–6 completion
 
 Phase 2 (persistence and API base) is complete for the base layer:
 
 - The initial `download_jobs` schema and active-job uniqueness constraint are
-  in place. Feature-owned tables (import/session/candidates, library index, and
-  paired devices) are deliberately added with their respective phases.
+  in place. Later migrations add job attempts and the library index;
+  import/session/candidate and paired-device tables remain with their phases.
 - API routing remains under `/api/v1`, with typed health and error schemas.
 - API failures use RFC 9457 `application/problem+json` with stable error codes,
   a request-ID extension, safe validation details, and redacted logging.
@@ -187,8 +190,8 @@ Phase 3 (search and entity details) is complete for the adapter/UI layer:
   `/api/v1/entities/detail` are implemented with provider error mapping.
 - The React/TypeScript/Vite UI implements the search and entity-detail flows,
   inline loading/error/empty states, back-navigation restoration, keyboard
-  focus, responsive layout, and light/dark tokens. Queue/Settings navigation is
-  visibly disabled until their phases.
+  focus, responsive layout, and light/dark tokens. Queue was enabled in Phase 4;
+  Settings remains disabled until its phase.
 - The Vite build writes into `src/spotui/web/dist/`; hatchling packages those
   generated assets into both wheel and sdist. A clean wheel install served the
   built frontend and assets successfully.
@@ -216,8 +219,9 @@ Phase 4 (download queue and worker) is complete for the implementation layer:
 - Typed queue APIs cover snapshot/get/enqueue/batch/cancel/retry with
   problem-details mapping. Batch enqueue preserves the legacy library-skip
   behavior.
-- A compatibility library index restores in-library badges and batch skip
-  behavior from lucidadl's completed state without modifying media.
+- A compatibility library index restored in-library badges and batch skip
+  behavior from lucidadl's completed state without modifying media. This was
+  superseded by the durable multi-root index in Phase 6.
 - The React UI adds individual/bulk download actions, a compact desktop queue
   panel, a full queue manager, responsive mobile navigation, status messaging,
   cancellation/retry, and short-lived snackbars. It deliberately shows no
@@ -251,5 +255,43 @@ Final checks: 271 backend tests and 20 frontend tests pass; `ruff`, the
 TypeScript typecheck, and the Vite production build are clean. A clean wheel
 install served the generated assets and returned the live paused `spotifast`
 track through `/api/v1/now-playing`, confirming the real `playerctl` adapter
-path. The missing-playerctl and idle-player branches remain mock-verified. Next
-is Phase 6: the durable library index and hard availability checks.
+path. The missing-playerctl and idle-player branches remain mock-verified.
+
+Phase 6 (durable library index) is complete for the persistence/scanner/API
+layer:
+
+- Migration `0003` adds `library_roots`, `library_files`, and
+  `library_scan_runs`, including a single-active-scan invariant, root/file
+  foreign-key cleanup, and prior-schema upgrade/downgrade coverage.
+- Multiple absolute read-only roots are validated and reconciled from
+  configuration. `refresh_seconds` supports startup, periodic, and explicit
+  scans; `scan_on_startup` is configurable. Invalid relative/duplicate/file
+  roots fail with actionable configuration errors.
+- The Mutagen adapter reads title, artist, album, track number, duration, and
+  Amazon track identity from lucida source-URL comments. Files without usable
+  tags fall back to filename/path metadata. Files are opened read-only; no
+  hashing, rename, move, write, or deletion occurs.
+- The background scanner is single-threaded across roots, ignores hidden
+  entries and symlinks, detects size/mtime changes, skips unchanged tag reads,
+  records progress, and only removes stale index rows after a complete scan.
+  An unavailable root remains unavailable with its previous index preserved;
+  a missing match then reports `in_library: null`, never `false`.
+- Library annotations expose `library_match: exact | likely`. Exact requires a
+  normalized Amazon track identity; title/artist similarity is explicitly
+  `likely`. Batch downloads skip only confirmed matches. The frontend reflects
+  both badge states in text and accessible hover text.
+- `GET /api/v1/library` reports root availability, file counts, active scan
+  progress, and safe errors. `POST /api/v1/library/scan` requests a manual
+  rescan. Missing library service wiring returns a stable 503 problem response.
+- Tests cover multiple roots, missing mounts, tag fallback, filename fallback,
+  unchanged/changed/deleted files, rescan cleanup, interrupted scan recovery,
+  exact/likely/unknown matching, API contracts, and source-file immutability.
+
+A read-only verification scan of the real `/mnt/Shared/Music` library indexed
+364 audio files in 0.53 seconds: all had tag metadata and durations, 336 had
+Amazon track identities, and an exact lookup succeeded. Final checks: 300
+backend tests and 22 frontend tests pass; `ruff`, the TypeScript typecheck, and
+the Vite production build are clean. A clean wheel install migrated through
+`0003_library_index`, served the packaged frontend, completed the 364-file
+startup scan and a manual API rescan, and logged no server errors. The next
+feature phase is Phase 7: progressive Spotify import and matching.

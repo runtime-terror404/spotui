@@ -1,5 +1,5 @@
 import type { CatalogItem } from "../../api/types";
-import { kindLabel } from "../../features/catalog/labels";
+import { kindLabel, libraryMatchLabel } from "../../features/catalog/labels";
 import { Artwork } from "../ui/Artwork";
 
 interface CatalogCardProps {
@@ -9,6 +9,7 @@ interface CatalogCardProps {
 
 export function CatalogCard({ item, onOpen }: CatalogCardProps) {
   const artist = item.kind === "artist";
+  const matchLabel = libraryMatchLabel(item.library_match);
 
   return (
     <button
@@ -33,7 +34,13 @@ export function CatalogCard({ item, onOpen }: CatalogCardProps) {
           </span>
         ) : null}
         {item.in_library ? (
-          <span className="library-badge">In library</span>
+          <span
+            className="library-badge"
+            title={matchLabel}
+            aria-label={matchLabel}
+          >
+            In library
+          </span>
         ) : null}
       </span>
     </button>

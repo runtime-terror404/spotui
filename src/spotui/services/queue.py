@@ -75,11 +75,11 @@ class QueueService:
             except AmazonUrlError:
                 invalid += 1
                 continue
-            if self._library is not None and self._library.contains(
+            if self._library is not None and self._library.lookup(
                 request.url,
                 request.title,
                 request.artist,
-            ):
+            ).match is not None:
                 skipped_library += 1
                 continue
             result = self._repository.enqueue(

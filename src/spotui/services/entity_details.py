@@ -27,15 +27,14 @@ class EntityDetailsService:
         detail = self._provider.detail(target)
         if self._library is None:
             return detail
-        tracks = tuple(
-            replace(
-                track,
-                in_library=self._library.contains(
-                    track.url,
-                    track.title,
-                    track.artist,
-                ),
+        tracks = []
+        for track in detail.tracks:
+            lookup = self._library.lookup(track.url, track.title, track.artist)
+            tracks.append(
+                replace(
+                    track,
+                    in_library=lookup.in_library,
+                    library_match=lookup.match,
+                )
             )
-            for track in detail.tracks
-        )
-        return replace(detail, tracks=tracks)
+        return replace(detail, tracks=tuple(tracks))
