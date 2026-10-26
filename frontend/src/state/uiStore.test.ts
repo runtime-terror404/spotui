@@ -48,4 +48,13 @@ describe("uiStore", () => {
     expect(useUIStore.getState().view).toBe("search");
     expect(useUIStore.getState().submittedQuery).toBe("arijit");
   });
+
+  it("opens imports with an optional selected session", () => {
+    useUIStore.getState().openImports("session-1");
+    expect(useUIStore.getState().view).toBe("imports");
+    expect(useUIStore.getState().selectedImportId).toBe("session-1");
+
+    useUIStore.getState().openImports();
+    expect(useUIStore.getState().selectedImportId).toBeNull();
+  });
 });

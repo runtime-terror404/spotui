@@ -54,3 +54,23 @@ class NowPlayingUnavailableError(RuntimeError):
 class LibraryUnavailableError(RuntimeError):
     """The library index service is not configured."""
 
+
+class ImportsUnavailableError(RuntimeError):
+    """The Spotify import service is not configured."""
+
+
+class ImportNotFoundError(LookupError):
+    """The requested import session, source occurrence, or candidate is missing."""
+
+
+class ActiveImportConflictError(RuntimeError):
+    """Another import already owns the active matching slot."""
+
+
+class ImportStateError(RuntimeError):
+    """The requested action is not valid for the import's current state."""
+
+
+class InvalidSelectionError(RuntimeError):
+    """A candidate or source-track selection is invalid."""
+

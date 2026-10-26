@@ -7,6 +7,7 @@ from dataclasses import dataclass, field
 from typing import Protocol
 
 from spotui.services.entity_details import EntityDetailsService
+from spotui.services.imports import ImportService
 from spotui.services.library import LibraryService
 from spotui.services.now_playing import NowPlayingService
 from spotui.services.queue import QueueService
@@ -26,6 +27,7 @@ class ApplicationServices:
     queue: QueueService | None = None
     now_playing: NowPlayingService | None = None
     library: LibraryService | None = None
+    imports: ImportService | None = None
     resources: tuple[Closable, ...] = ()
     _started: bool = field(default=False, init=False)
     _closed: bool = field(default=False, init=False)
@@ -38,11 +40,18 @@ class ApplicationServices:
             self.library.start()
         if self.queue is not None:
             self.queue.start()
+        if self.imports is not None:
+            self.imports.start()
 
     def close(self) -> None:
         if self._closed:
             return
         self._closed = True
+        if self.imports is not None:
+            try:
+                self.imports.close()
+            except Exception:
+                logger.exception("failed to stop Spotify matching")
         if self.queue is not None:
             try:
                 self.queue.stop()

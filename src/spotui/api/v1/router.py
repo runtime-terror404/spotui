@@ -5,6 +5,7 @@ from fastapi import APIRouter
 from spotui.api.v1.routes import (
     entities,
     health,
+    imports,
     library,
     now_playing,
     queue,
@@ -18,3 +19,4 @@ router.include_router(entities.router, tags=["catalog"])
 router.include_router(queue.router, tags=["queue"])
 router.include_router(now_playing.router, tags=["now-playing"])
 router.include_router(library.router, tags=["library"])
+router.include_router(imports.router, tags=["imports"])

@@ -150,10 +150,10 @@ test, and a clean-wheel install:
 
 - No trusted-LAN interface was available in the audit sandbox; LAN bind behavior
   is covered by injected-interface unit tests, not a live network test.
-- Spotify/Amazon fixtures are not yet captured; routine tests use mocks rather
-  than live provider responses.
-- Spotify import/matching, settings, pairing, and the installer are not
-  implemented yet.
+- Amazon fixtures remain synthetic; routine tests use mocks rather than live
+  provider responses. Spotify embed parsing has saved synthetic fixtures and
+  was also exercised against live public pages.
+- Settings, pairing, and the installer are not implemented yet.
 - `lucidadl` download output capture and the final release pin remain
   outstanding.
 - Live MPRIS reads were exercised against a paused `spotifast` session during
@@ -165,13 +165,13 @@ test, and a clean-wheel install:
 - Legacy queue migration, systemd helper, and release automation are later
   phases.
 
-## 8. Phase 2–6 completion
+## 8. Phase 2–7 completion
 
 Phase 2 (persistence and API base) is complete for the base layer:
 
 - The initial `download_jobs` schema and active-job uniqueness constraint are
-  in place. Later migrations add job attempts and the library index;
-  import/session/candidate and paired-device tables remain with their phases.
+  in place. Later migrations add job attempts, the library index, and Spotify
+  import/session/candidate tables; paired-device tables remain with Phase 8.
 - API routing remains under `/api/v1`, with typed health and error schemas.
 - API failures use RFC 9457 `application/problem+json` with stable error codes,
   a request-ID extension, safe validation details, and redacted logging.
@@ -293,5 +293,50 @@ Amazon track identities, and an exact lookup succeeded. Final checks: 300
 backend tests and 22 frontend tests pass; `ruff`, the TypeScript typecheck, and
 the Vite production build are clean. A clean wheel install migrated through
 `0003_library_index`, served the packaged frontend, completed the 364-file
-startup scan and a manual API rescan, and logged no server errors. The next
-feature phase is Phase 7: progressive Spotify import and matching.
+startup scan and a manual API rescan, and logged no server errors.
+
+Phase 7 (Spotify progressive matching) is complete for the extraction,
+persistence, scheduler, API, SSE, and UI layers:
+
+- Migration `0004` adds `import_sessions`, `source_tracks`, and
+  `amazon_candidates`, including one-active-session enforcement, source
+  position uniqueness, cascade cleanup, and queue-outcome provenance.
+- The Spotify adapter accepts only public open.spotify.com album/playlist links
+  and spotify.link/spotify.app.link short links. It uses bounded redirects,
+  size/timeout limits, and the public embed page; no login or OAuth is used.
+  Parsed occurrences retain source position and duplicates. Live extraction
+  returned 50 tracks from a public playlist and 15 from a public album.
+- Amazon match queries use bounded retries/backoff and the configured 1–5
+  concurrency. Ranking is deterministic from title, artist, and version
+  metadata; candidates are persisted as they arrive and are never
+  auto-selected. A live Amazon query returned 10 ranked candidates in 4.24s.
+- Session states cover extraction, matching, pause, and matching-complete.
+  Paused sessions retain the active slot; matching completion releases it.
+  Restart recovery deletes incomplete extraction sessions, requeues interrupted
+  active searches, and preserves completed review data. Manual per-source
+  searches work after completion without retaking the active slot.
+- Explicit selection, skip, pause/resume/cancel, completed-session deletion,
+  and add-selected are implemented. Add-selected is idempotent, works before
+  all matching finishes, records queued/duplicate/library-skipped outcomes,
+  preserves source occurrences, and never deletes jobs or media.
+- `GET /api/v1/imports/{id}/events` streams revision events. The frontend
+  refetches authoritative REST state and adds an Imports workspace with
+  progressive candidate review, source-duplicate and library warnings, manual
+  search, library override, lifecycle controls, and destructive confirmations.
+- Tests cover URL safety, extraction fixtures, duplicate occurrences, ranking,
+  retries, bounded concurrency, pause/resume, cancellation/deletion, one active
+  import, manual search, no auto-selection, add-selected before matching
+  completion, idempotency, library overrides, SSE, and API contracts.
+
+Live API verification created a 50-track import, paused it with one search
+in-flight, rejected a second active import with a stable conflict response,
+read the SSE revision stream, and cancelled cleanly with no queued jobs deleted
+or server errors. The import workspace was also rendered at desktop and mobile
+widths with no horizontal overflow.
+
+Final checks: 361 backend tests and 25 frontend tests pass; `ruff`, the
+TypeScript typecheck, the Vite production build, and `uv lock --check` are
+clean. Clean-install checks verified migration through `0004_spotify_imports`,
+live public Spotify extraction, the packaged Imports UI, import creation,
+pause/cancel, SSE revisions, and no server errors. The next feature phase is
+Phase 8: pairing and LAN hardening.

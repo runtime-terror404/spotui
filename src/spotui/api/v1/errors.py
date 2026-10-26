@@ -14,18 +14,28 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 from spotui.api.middleware import get_request_id
 from spotui.domain.amazon import AmazonUrlError
 from spotui.domain.errors import (
+    ActiveImportConflictError,
     CatalogError,
     CatalogResponseError,
     CatalogTimeoutError,
     CatalogUnavailableError,
     DownloaderUnavailableError,
     DuplicateActiveJobError,
+    ImportNotFoundError,
+    ImportStateError,
+    ImportsUnavailableError,
     InvalidSearchQueryError,
+    InvalidSelectionError,
     JobNotFoundError,
     JobTransitionError,
     LibraryUnavailableError,
     NowPlayingUnavailableError,
     QueueUnavailableError,
+)
+from spotui.domain.spotify import (
+    SpotifyExtractionError,
+    SpotifyTimeoutError,
+    SpotifyUrlError,
 )
 from spotui.logging_setup import log_context
 from spotui.schemas.errors import ErrorCode, FieldIssue, ProblemDetails
@@ -356,6 +366,102 @@ async def library_unavailable_handler(
     )
 
 
+async def spotify_url_error_handler(
+    request: Request, exc: SpotifyUrlError
+) -> JSONResponse:
+    return problem_response(
+        request,
+        status_code=400,
+        code=ErrorCode.INVALID_URL,
+        title="Invalid Spotify URL",
+        detail=str(exc),
+    )
+
+
+async def spotify_timeout_handler(
+    request: Request, exc: SpotifyTimeoutError
+) -> JSONResponse:
+    return _service_failure(
+        request,
+        exc,
+        status_code=504,
+        code=ErrorCode.SPOTIFY_EXTRACTION_FAILED,
+        title="Spotify timed out",
+    )
+
+
+async def spotify_extraction_handler(
+    request: Request, exc: SpotifyExtractionError
+) -> JSONResponse:
+    return _service_failure(
+        request,
+        exc,
+        status_code=502,
+        code=ErrorCode.SPOTIFY_EXTRACTION_FAILED,
+        title="Spotify import failed",
+    )
+
+
+async def imports_unavailable_handler(
+    request: Request, exc: ImportsUnavailableError
+) -> JSONResponse:
+    return _service_failure(
+        request,
+        exc,
+        status_code=503,
+        code=ErrorCode.IMPORTS_UNAVAILABLE,
+        title="Spotify imports unavailable",
+    )
+
+
+async def import_not_found_handler(
+    request: Request, exc: ImportNotFoundError
+) -> JSONResponse:
+    return _service_failure(
+        request,
+        exc,
+        status_code=404,
+        code=ErrorCode.IMPORT_NOT_FOUND,
+        title="Import not found",
+    )
+
+
+async def active_import_conflict_handler(
+    request: Request, exc: ActiveImportConflictError
+) -> JSONResponse:
+    return _service_failure(
+        request,
+        exc,
+        status_code=409,
+        code=ErrorCode.ACTIVE_IMPORT_CONFLICT,
+        title="Import already active",
+    )
+
+
+async def import_state_handler(
+    request: Request, exc: ImportStateError
+) -> JSONResponse:
+    return _service_failure(
+        request,
+        exc,
+        status_code=409,
+        code=ErrorCode.INVALID_TRANSITION,
+        title="Invalid import action",
+    )
+
+
+async def invalid_selection_handler(
+    request: Request, exc: InvalidSelectionError
+) -> JSONResponse:
+    return _service_failure(
+        request,
+        exc,
+        status_code=409,
+        code=ErrorCode.INVALID_SELECTION,
+        title="Invalid selection",
+    )
+
+
 async def unhandled_exception_handler(request: Request, exc: Exception) -> JSONResponse:
     request_id = get_request_id(request)
     with log_context(request_id=request_id):
@@ -392,4 +498,12 @@ def install_error_handlers(app: FastAPI) -> None:
     app.add_exception_handler(QueueUnavailableError, queue_unavailable_handler)
     app.add_exception_handler(NowPlayingUnavailableError, now_playing_unavailable_handler)
     app.add_exception_handler(LibraryUnavailableError, library_unavailable_handler)
+    app.add_exception_handler(SpotifyUrlError, spotify_url_error_handler)
+    app.add_exception_handler(SpotifyTimeoutError, spotify_timeout_handler)
+    app.add_exception_handler(SpotifyExtractionError, spotify_extraction_handler)
+    app.add_exception_handler(ImportsUnavailableError, imports_unavailable_handler)
+    app.add_exception_handler(ImportNotFoundError, import_not_found_handler)
+    app.add_exception_handler(ActiveImportConflictError, active_import_conflict_handler)
+    app.add_exception_handler(ImportStateError, import_state_handler)
+    app.add_exception_handler(InvalidSelectionError, invalid_selection_handler)
     app.add_exception_handler(Exception, unhandled_exception_handler)

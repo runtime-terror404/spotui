@@ -130,9 +130,12 @@ class QueueService:
         self._worker.wake()
         return job
 
-    def _require_downloader(self) -> None:
+    def ensure_available(self) -> None:
         if not self._downloader.available():
             raise DownloaderUnavailableError(
                 "The managed lucidadl downloader is not installed. "
                 "Run 'spotui deps install'."
             )
+
+    def _require_downloader(self) -> None:
+        self.ensure_available()

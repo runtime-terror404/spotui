@@ -11,15 +11,16 @@ reference and is never imported by the new package.
 
 ## Current status
 
-**Phases 1–6: foundation, search/details, the download queue, Now Playing,
-and the durable library index.** The package, configuration, logging, process
-lock, SQLite/Alembic setup, FastAPI lifecycle, dual-listener foundation,
-versioned API, RFC 9457 error contract, Amazon adapters, React search/detail
-views, persisted download queue, managed worker,
-cancellation/retry/recovery, queue UI, optional MPRIS current-track shortcut,
-and read-only multi-root library index are in place. Spotify import, settings,
-pairing, and SSE remain for later phases. The baseline audit and verification
-evidence are recorded in [`docs/baseline-audit.md`](docs/baseline-audit.md).
+**Phases 1–7: foundation, search/details, the download queue, Now Playing,
+the library index, and progressive Spotify imports.** The package,
+configuration, logging, process lock, SQLite/Alembic setup, FastAPI lifecycle,
+dual-listener foundation, versioned API, RFC 9457 error contract, Amazon
+adapters, React search/detail/import views, persisted download queue, managed
+worker, cancellation/retry/recovery, queue UI, optional MPRIS current-track
+shortcut, read-only multi-root library index, and Spotify candidate-review
+workspace are in place. Settings, pairing, full queue SSE, and the installer
+remain for later phases. The baseline audit and verification evidence are
+recorded in [`docs/baseline-audit.md`](docs/baseline-audit.md).
 
 ## Requirements
 
@@ -32,6 +33,9 @@ evidence are recorded in [`docs/baseline-audit.md`](docs/baseline-audit.md).
 - Optional: `playerctl` and a running MPRIS-compatible media player for the
   Now Playing shortcut. Missing `playerctl` or no active player is reported as
   an availability state and never blocks startup, search, or downloads.
+- Internet access to public Spotify embed pages and Amazon Music for imports.
+  Spotify import uses public album/playlist pages only; no Spotify login,
+  OAuth token, or API key is required.
 
 SpotUI itself runs from a uv-managed environment. It never modifies system
 Python. `lucidadl` is managed in a separate environment under the SpotUI data
@@ -76,6 +80,18 @@ GET  /api/v1/entities/detail?url=...
 GET  /api/v1/now-playing
 GET  /api/v1/library
 POST /api/v1/library/scan
+GET  /api/v1/imports
+POST /api/v1/imports
+GET  /api/v1/imports/{id}
+GET  /api/v1/imports/{id}/events        # server-sent revisions
+POST /api/v1/imports/{id}/pause
+POST /api/v1/imports/{id}/resume
+POST /api/v1/imports/{id}/cancel
+DELETE /api/v1/imports/{id}
+POST /api/v1/imports/{id}/sources/{source_id}/select
+POST /api/v1/imports/{id}/sources/{source_id}/skip
+POST /api/v1/imports/{id}/sources/{source_id}/search
+POST /api/v1/imports/{id}/enqueue
 GET  /api/v1/queue
 GET  /api/v1/queue/jobs/{id}
 POST /api/v1/queue/jobs
@@ -85,8 +101,9 @@ POST /api/v1/queue/jobs/{id}/retry
 ```
 
 Interactive OpenAPI documentation is available at `/docs` in development.
-Queue and library-scan updates currently use polling; SSE integration is
-planned for a later phase.
+Import updates use SSE and authoritative REST refreshes. Queue and library-scan
+updates currently use polling; broader SSE integration is planned for a later
+phase.
 
 ## Configuration
 
@@ -116,6 +133,9 @@ job_timeout_seconds = 900.0
 # roots = ["/mnt/Shared/Music", "/mnt/Archive/Music"]
 refresh_seconds = 3600  # 0 disables periodic refresh
 scan_on_startup = true
+
+[matching]
+concurrency = 3  # bounded Amazon searches per active import, range 1–5
 ```
 
 Library roots are configured explicitly; SpotUI does not infer them from
@@ -127,8 +147,8 @@ Supported environment overrides are `SPOTUI_PORT`, `SPOTUI_TRUSTED_SUBNET`,
 `SPOTUI_LOG_BACKUP_COUNT`, `SPOTUI_CANCEL_GRACE_SECONDS`,
 `SPOTUI_QUEUE_SHUTDOWN_GRACE_SECONDS`, `SPOTUI_JOB_TIMEOUT_SECONDS`,
 `SPOTUI_LIBRARY_ROOTS` (OS path separator-delimited absolute directories),
-`SPOTUI_LIBRARY_REFRESH_SECONDS`, `SPOTUI_LIBRARY_SCAN_ON_STARTUP`, and
-`SPOTUI_CONFIG` (config file path).
+`SPOTUI_LIBRARY_REFRESH_SECONDS`, `SPOTUI_LIBRARY_SCAN_ON_STARTUP`,
+`SPOTUI_MATCHING_CONCURRENCY`, and `SPOTUI_CONFIG` (config file path).
 
 ## Data locations
 
@@ -175,7 +195,16 @@ roots are a separate, read-only setting.
   non-fatal availability state when `playerctl` or a player is absent. Set
   `SPOTUI_MPRIS_PLAYER` (legacy: `SPOTGRAB_PLAYER`) to force a player name.
   The header action searches Amazon by the current track title.
-- REST and SQLite are authoritative; the queue UI currently polls, with SSE
-  planned for a later phase.
+- Spotify imports validate public album/playlist hosts and bounded redirects,
+  then read the public embed page. Source occurrences retain order, position,
+  and duplicates. One active import owns the matching slot; a bounded worker
+  searches Amazon progressively and never auto-selects a candidate. Pause,
+  resume, cancellation, manual search, explicit selection, skip, and
+  add-selected actions are persisted. Add-selected is idempotent, blocks
+  duplicate active Amazon jobs, and warns about library matches before an
+  explicit override. Per-import SSE carries revision numbers; the React client
+  refreshes authoritative state from REST.
+- REST and SQLite are authoritative; the queue UI currently polls, with broader
+  SSE planned for a later phase.
 
 See [`refactor.md`](refactor.md) for the full phase plan and acceptance gates.

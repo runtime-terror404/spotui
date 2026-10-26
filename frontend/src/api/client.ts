@@ -3,6 +3,9 @@ import type {
   EntityDetail,
   EnqueueInput,
   EnqueueResponse,
+  ImportEnqueueResponse,
+  ImportListResponse,
+  ImportSessionDetail,
   NowPlayingResponse,
   ProblemDetails,
   ProblemIssue,
@@ -60,6 +63,9 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
       }
     }
     throw new ApiProblem(problem, response.status);
+  }
+  if (response.status === 204) {
+    return undefined as T;
   }
 
   try {
@@ -124,4 +130,90 @@ export function cancelQueueJob(jobId: string): Promise<QueueJob> {
 
 export function retryQueueJob(jobId: string): Promise<QueueJob> {
   return postJson<QueueJob>(`/api/v1/queue/jobs/${encodeURIComponent(jobId)}/retry`);
+}
+
+export function fetchImports(signal?: AbortSignal): Promise<ImportListResponse> {
+  return request<ImportListResponse>("/api/v1/imports", { signal });
+}
+
+export function fetchImport(
+  sessionId: string,
+  signal?: AbortSignal,
+): Promise<ImportSessionDetail> {
+  return request<ImportSessionDetail>(
+    `/api/v1/imports/${encodeURIComponent(sessionId)}`,
+    { signal },
+  );
+}
+
+export function createSpotifyImport(
+  url: string,
+): Promise<ImportSessionDetail> {
+  return postJson<ImportSessionDetail>("/api/v1/imports", { url });
+}
+
+function importAction(
+  sessionId: string,
+  action: "pause" | "resume",
+): Promise<ImportSessionDetail> {
+  return postJson<ImportSessionDetail>(
+    `/api/v1/imports/${encodeURIComponent(sessionId)}/${action}`,
+  );
+}
+
+export function pauseImport(sessionId: string): Promise<ImportSessionDetail> {
+  return importAction(sessionId, "pause");
+}
+
+export function resumeImport(sessionId: string): Promise<ImportSessionDetail> {
+  return importAction(sessionId, "resume");
+}
+
+export function cancelImport(sessionId: string): Promise<void> {
+  return postJson<void>(`/api/v1/imports/${encodeURIComponent(sessionId)}/cancel`);
+}
+
+export function deleteImport(sessionId: string): Promise<void> {
+  return request<void>(`/api/v1/imports/${encodeURIComponent(sessionId)}`, {
+    method: "DELETE",
+  });
+}
+
+export function selectImportCandidate(
+  sessionId: string,
+  sourceId: string,
+  candidateId: string,
+): Promise<ImportSessionDetail> {
+  return postJson<ImportSessionDetail>(
+    `/api/v1/imports/${encodeURIComponent(sessionId)}/sources/${encodeURIComponent(sourceId)}/select`,
+    { candidate_id: candidateId },
+  );
+}
+
+export function skipImportSource(
+  sessionId: string,
+  sourceId: string,
+): Promise<ImportSessionDetail> {
+  return postJson<ImportSessionDetail>(
+    `/api/v1/imports/${encodeURIComponent(sessionId)}/sources/${encodeURIComponent(sourceId)}/skip`,
+  );
+}
+
+export function searchImportSource(
+  sessionId: string,
+  sourceId: string,
+): Promise<ImportSessionDetail> {
+  return postJson<ImportSessionDetail>(
+    `/api/v1/imports/${encodeURIComponent(sessionId)}/sources/${encodeURIComponent(sourceId)}/search`,
+  );
+}
+
+export function enqueueImportSelected(
+  sessionId: string,
+  forceLibrary = false,
+): Promise<ImportEnqueueResponse> {
+  return postJson<ImportEnqueueResponse>(
+    `/api/v1/imports/${encodeURIComponent(sessionId)}/enqueue`,
+    { force_library: forceLibrary },
+  );
 }

@@ -144,3 +144,107 @@ export interface NowPlayingResponse {
   player?: string;
   reason?: string;
 }
+
+export type ImportStatus =
+  | "extracting"
+  | "matching"
+  | "paused"
+  | "matching_complete";
+
+export type MatchingStatus =
+  | "pending"
+  | "searching"
+  | "candidates_ready"
+  | "no_results"
+  | "failed";
+
+export type ReviewStatus = "unreviewed" | "selected" | "skipped";
+
+export type ImportQueueOutcome =
+  | "none"
+  | "queued"
+  | "duplicate"
+  | "skipped_library";
+
+export interface ImportCounts {
+  total: number;
+  pending: number;
+  searching: number;
+  matched: number;
+  no_results: number;
+  failed: number;
+  selected: number;
+  queued: number;
+  duplicate: number;
+  skipped: number;
+  library_skipped: number;
+  unresolved: number;
+}
+
+export interface AmazonCandidate {
+  id: string;
+  url: string;
+  track_key: string;
+  title: string;
+  artist: string;
+  album: string;
+  duration_seconds?: number | null;
+  artwork_url?: string | null;
+  provider_position: number;
+  rank: number;
+  score: number;
+  explanation: string;
+}
+
+export interface ImportSourceTrack {
+  id: string;
+  position: number;
+  spotify_track_id?: string | null;
+  source_url?: string | null;
+  title: string;
+  artist: string;
+  duration_seconds?: number | null;
+  matching_status: MatchingStatus;
+  review_status: ReviewStatus;
+  selected_candidate_id?: string | null;
+  library_match?: LibraryMatch | null;
+  queue_outcome: ImportQueueOutcome;
+  queued_job_id?: string | null;
+  source_duplicate_of_id?: string | null;
+  queued_duplicate_of_source_id?: string | null;
+  attempt_count: number;
+  last_error?: string | null;
+  candidates: AmazonCandidate[];
+}
+
+export interface ImportSession {
+  id: string;
+  source_url: string;
+  spotify_type?: "album" | "playlist" | null;
+  spotify_id?: string | null;
+  title: string;
+  artwork_url?: string | null;
+  status: ImportStatus;
+  revision: number;
+  counts: ImportCounts;
+  last_error?: string | null;
+  created_at: number;
+  updated_at: number;
+  matching_started_at?: number | null;
+  matching_completed_at?: number | null;
+}
+
+export interface ImportSessionDetail extends ImportSession {
+  sources: ImportSourceTrack[];
+}
+
+export interface ImportListResponse {
+  imports: ImportSession[];
+}
+
+export interface ImportEnqueueResponse {
+  session: ImportSessionDetail;
+  queued: number;
+  duplicate: number;
+  skipped_library: number;
+}

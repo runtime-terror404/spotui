@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { MusicIcon } from "../icons";
 
 interface ArtworkProps {
-  src?: string;
+  src?: string | null;
   alt: string;
   shape?: "square" | "circle";
   className?: string;

@@ -104,3 +104,12 @@ export function ClockIcon(props: IconProps) {
     </svg>
   );
 }
+
+export function ImportsIcon(props: IconProps) {
+  return (
+    <svg {...baseProps(props)}>
+      <path d="M5 4h11a3 3 0 0 1 3 3v13H8a3 3 0 0 1-3-3V4Z" />
+      <path d="M8 4v16M11 8h5M11 12h5M11 16h3" />
+    </svg>
+  );
+}

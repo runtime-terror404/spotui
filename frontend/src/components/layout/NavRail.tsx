@@ -1,11 +1,13 @@
 import { useUIStore } from "../../state/uiStore";
-import { QueueIcon, SearchIcon, SettingsIcon } from "../icons";
+import { ImportsIcon, QueueIcon, SearchIcon, SettingsIcon } from "../icons";
 
 export function NavRail() {
   const view = useUIStore((state) => state.view);
   const openSearch = useUIStore((state) => state.openSearch);
   const openQueue = useUIStore((state) => state.openQueue);
+  const openImports = useUIStore((state) => state.openImports);
   const setSearchScrollY = useUIStore((state) => state.setSearchScrollY);
+  const searchActive = view === "search" || view === "detail";
 
   return (
     <nav className="nav-rail" aria-label="Primary">
@@ -22,13 +24,25 @@ export function NavRail() {
         <li>
           <button
             type="button"
-            className={`nav-item ${view !== "queue" ? "is-active" : ""}`.trim()}
-            aria-current={view !== "queue" ? "page" : undefined}
+            className={`nav-item ${searchActive ? "is-active" : ""}`.trim()}
+            aria-current={searchActive ? "page" : undefined}
             aria-label="Search"
             onClick={openSearch}
           >
             <SearchIcon />
             <span>Search</span>
+          </button>
+        </li>
+        <li>
+          <button
+            type="button"
+            className={`nav-item ${view === "imports" ? "is-active" : ""}`.trim()}
+            aria-current={view === "imports" ? "page" : undefined}
+            aria-label="Imports"
+            onClick={() => openImports()}
+          >
+            <ImportsIcon />
+            <span>Imports</span>
           </button>
         </li>
         <li>

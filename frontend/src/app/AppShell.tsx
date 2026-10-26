@@ -3,6 +3,7 @@ import { NavRail } from "../components/layout/NavRail";
 import { SearchHeader } from "../components/layout/SearchHeader";
 import { SnackbarRegion } from "../components/ui/SnackbarRegion";
 import { EntityDetailView } from "../features/entity-details/EntityDetailView";
+import { ImportsPage } from "../features/imports/ImportsPage";
 import { QueuePage } from "../features/queue/QueuePage";
 import { QueuePanel } from "../features/queue/QueuePanel";
 import { SearchView } from "../features/search/SearchView";
@@ -23,6 +24,7 @@ export function AppShell() {
           <SearchHeader />
           <main id="main-content" className="workspace__main" tabIndex={-1}>
             {view === "queue" ? <QueuePage /> : null}
+            {view === "imports" ? <ImportsPage /> : null}
             {view === "detail" && detailUrl ? (
               <EntityDetailView url={detailUrl} />
             ) : null}

@@ -1,12 +1,13 @@
 import { create } from "zustand";
 
-export type AppView = "search" | "detail" | "queue";
+export type AppView = "search" | "detail" | "queue" | "imports";
 
 interface UIState {
   view: AppView;
   inputQuery: string;
   submittedQuery: string;
   detailUrl: string | null;
+  selectedImportId: string | null;
   searchScrollY: number;
   setInputQuery: (query: string) => void;
   submitSearch: (query: string) => void;
@@ -15,6 +16,7 @@ interface UIState {
   backToSearch: () => void;
   openSearch: () => void;
   openQueue: () => void;
+  openImports: (importId?: string | null) => void;
   reset: () => void;
 }
 
@@ -23,6 +25,7 @@ const initialState = {
   inputQuery: "",
   submittedQuery: "",
   detailUrl: null,
+  selectedImportId: null,
   searchScrollY: 0,
 };
 
@@ -47,5 +50,7 @@ export const useUIStore = create<UIState>((set) => ({
   backToSearch: () => set({ view: "search", detailUrl: null }),
   openSearch: () => set({ view: "search", detailUrl: null }),
   openQueue: () => set({ view: "queue" }),
+  openImports: (importId = null) =>
+    set({ view: "imports", selectedImportId: importId }),
   reset: () => set(initialState),
 }));

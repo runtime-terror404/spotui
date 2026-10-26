@@ -23,6 +23,7 @@ def test_defaults(env) -> None:
     assert config.library.roots == ()
     assert config.library.refresh_seconds == 3600
     assert config.library.scan_on_startup is True
+    assert config.matching.concurrency == 3
 
 
 def test_file_values_override_defaults(env) -> None:
@@ -48,6 +49,9 @@ job_timeout_seconds = 600.0
 roots = ["/music/one", "/music/two"]
 refresh_seconds = 600
 scan_on_startup = false
+
+[matching]
+concurrency = 4
 """,
     )
 
@@ -65,6 +69,7 @@ scan_on_startup = false
     assert config.library.roots == ("/music/one", "/music/two")
     assert config.library.refresh_seconds == 600
     assert config.library.scan_on_startup is False
+    assert config.matching.concurrency == 4
 
 
 def test_environment_overrides_file_and_cli_overrides_environment(env) -> None:
@@ -100,6 +105,18 @@ def test_queue_environment_overrides(env) -> None:
     assert config.queue.cancel_grace_seconds == 1.5
     assert config.queue.shutdown_grace_seconds == 2.5
     assert config.queue.job_timeout_seconds == 600.0
+
+
+def test_matching_concurrency_environment_override(env) -> None:
+    config = load_config(env.paths, environ={"SPOTUI_MATCHING_CONCURRENCY": "5"})
+
+    assert config.matching.concurrency == 5
+
+
+@pytest.mark.parametrize("value", ["0", "6", "many"])
+def test_matching_concurrency_range_is_enforced(env, value: str) -> None:
+    with pytest.raises(ConfigError, match="SPOTUI_MATCHING_CONCURRENCY|concurrency"):
+        load_config(env.paths, environ={"SPOTUI_MATCHING_CONCURRENCY": value})
 
 
 def test_library_environment_overrides(env) -> None:

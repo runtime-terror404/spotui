@@ -122,6 +122,12 @@ class LibrarySettings(BaseModel):
         return _normalize_library_roots(value)
 
 
+class MatchingSettings(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    concurrency: int = Field(default=3, ge=1, le=5)
+
+
 class AppConfig(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
@@ -129,6 +135,7 @@ class AppConfig(BaseModel):
     logging: LoggingSettings = Field(default_factory=LoggingSettings)
     queue: QueueSettings = Field(default_factory=QueueSettings)
     library: LibrarySettings = Field(default_factory=LibrarySettings)
+    matching: MatchingSettings = Field(default_factory=MatchingSettings)
 
 
 def _parse_environment_bool(value: str) -> bool:
@@ -161,6 +168,7 @@ _ENV_SETTINGS: dict[str, tuple[str, str, Callable[[str], Any]]] = {
         "scan_on_startup",
         _parse_environment_bool,
     ),
+    "SPOTUI_MATCHING_CONCURRENCY": ("matching", "concurrency", int),
 }
 
 

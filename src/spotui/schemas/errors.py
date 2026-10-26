@@ -31,6 +31,8 @@ class ErrorCode(StrEnum):
     ACTIVE_IMPORT_CONFLICT = "active_import_conflict"
     INVALID_SELECTION = "invalid_selection"
     STALE_REVISION = "stale_revision"
+    IMPORTS_UNAVAILABLE = "imports_unavailable"
+    IMPORT_NOT_FOUND = "import_not_found"
     DUPLICATE_ACTIVE_JOB = "duplicate_active_job"
     JOB_NOT_FOUND = "job_not_found"
     INVALID_TRANSITION = "invalid_transition"
