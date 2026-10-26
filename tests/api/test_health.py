@@ -66,3 +66,10 @@ def test_placeholder_is_packaged() -> None:
     resource = resources.files("spotui.web").joinpath("placeholder.html")
 
     assert resource.is_file()
+
+
+def test_openapi_exposes_only_versioned_health_route(client) -> None:
+    schema = client.get("/openapi.json").json()
+
+    assert "/api/v1/health" in schema["paths"]
+    assert "/api/health" not in schema["paths"]

@@ -13,6 +13,7 @@ from fastapi.responses import HTMLResponse
 
 from spotui import __version__
 from spotui.api.middleware import RequestContextMiddleware
+from spotui.api.v1.errors import install_error_handlers
 from spotui.api.v1.router import router as api_router
 from spotui.persistence.database import Database, database_url_for_path
 from spotui.persistence.migrate import check_database_current
@@ -73,6 +74,7 @@ def create_app(runtime: ApplicationRuntime, *, placeholder_html: str | None = No
     )
     app.state.runtime = runtime
     app.add_middleware(RequestContextMiddleware)
+    install_error_handlers(app)
     app.include_router(api_router)
 
     @app.get("/", response_class=HTMLResponse, include_in_schema=False)

@@ -8,12 +8,21 @@ import time
 from uuid import uuid4
 
 from starlette.datastructures import Headers
+from starlette.requests import Request
 
 from spotui.logging_setup import log_context
 
 logger = logging.getLogger("spotui.request")
 
 _REQUEST_ID_RE = re.compile(r"^[A-Za-z0-9._-]{1,64}$")
+
+
+def get_request_id(request: Request) -> str:
+    """Return the middleware-assigned request ID, generating a fallback."""
+    value = getattr(request.state, "request_id", None)
+    if isinstance(value, str) and value:
+        return value
+    return uuid4().hex
 
 
 class RequestContextMiddleware:
@@ -48,9 +57,6 @@ class RequestContextMiddleware:
         with log_context(request_id=request_id):
             try:
                 await self.app(scope, receive, send_with_request_id)
-            except Exception:
-                logger.exception("unhandled error during %s %s", method, path)
-                raise
             finally:
                 elapsed_ms = (time.perf_counter() - started) * 1000
                 logger.info("%s %s -> %d %.1fms", method, path, status, elapsed_ms)

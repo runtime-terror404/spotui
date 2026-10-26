@@ -158,9 +158,20 @@ test, and a clean-wheel install:
 - Legacy queue migration, installer, systemd helper, and release automation are
   later phases.
 
-## 8. Next phase
+## 8. Phase 2 completion and next phase
 
-Proceed to Phase 2 (persistence and API base): extend the schema and repositories
-for imports/candidates/library/paired devices, add RFC 9457 Problem Details and
-request-ID error contracts, and add API fixtures/tests. Phase 1 deliberately
-establishes only the foundation and the first `download_jobs` migration.
+Phase 2 (persistence and API base) is complete for the base layer:
+
+- The initial `download_jobs` schema and active-job uniqueness constraint are
+  in place. Feature-owned tables (import/session/candidates, library index, and
+  paired devices) are deliberately added with their respective phases.
+- API routing remains under `/api/v1`, with typed health and error schemas.
+- API failures use RFC 9457 `application/problem+json` with stable error codes,
+  a request-ID extension, safe validation details, and redacted logging.
+- API fixtures and tests cover the problem contract, validation, HTTP errors,
+  unexpected exceptions, and OpenAPI versioning.
+
+Next is Phase 3: Amazon search and entity details behind adapters, followed by
+the React search/detail views and Vite asset packaging. Phase 3 must also
+establish the separate Playwright/Chromium runtime check for the Amazon web
+adapter before live search work is considered complete.

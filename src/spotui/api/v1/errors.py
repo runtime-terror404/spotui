@@ -1,0 +1,179 @@
+"""RFC 9457 Problem Details handling for the application API."""
+
+from __future__ import annotations
+
+import logging
+from collections.abc import Mapping
+from http import HTTPStatus
+
+from fastapi import FastAPI, Request
+from fastapi.exceptions import RequestValidationError
+from fastapi.responses import JSONResponse
+from starlette.exceptions import HTTPException as StarletteHTTPException
+
+from spotui.api.middleware import get_request_id
+from spotui.logging_setup import log_context
+from spotui.schemas.errors import ErrorCode, FieldIssue, ProblemDetails
+
+logger = logging.getLogger("spotui.errors")
+
+PROBLEM_MEDIA_TYPE = "application/problem+json"
+
+_HTTP_EXCEPTION_CODES: dict[int, ErrorCode] = {
+    401: ErrorCode.UNAUTHORIZED,
+    403: ErrorCode.FORBIDDEN,
+    404: ErrorCode.NOT_FOUND,
+    405: ErrorCode.METHOD_NOT_ALLOWED,
+    409: ErrorCode.CONFLICT,
+    422: ErrorCode.VALIDATION_ERROR,
+    429: ErrorCode.RATE_LIMITED,
+}
+
+
+class ApiError(Exception):
+    """An expected API failure with a stable code and safe public message."""
+
+    def __init__(
+        self,
+        *,
+        status_code: int,
+        code: ErrorCode,
+        title: str,
+        detail: str,
+        headers: Mapping[str, str] | None = None,
+    ) -> None:
+        if not 400 <= status_code <= 599:
+            raise ValueError(f"invalid API error status {status_code}")
+        self.status_code = status_code
+        self.code = code
+        self.title = title
+        self.detail = detail
+        self.headers = dict(headers or {})
+        super().__init__(detail)
+
+
+def problem_response(
+    request: Request,
+    *,
+    status_code: int,
+    code: ErrorCode,
+    title: str,
+    detail: str,
+    errors: list[FieldIssue] | None = None,
+    headers: Mapping[str, str] | None = None,
+) -> JSONResponse:
+    """Build a problem+json response with stable extensions."""
+    request_id = get_request_id(request)
+    body = ProblemDetails(
+        type=f"urn:spotui:error:{code.value}",
+        title=title,
+        status=status_code,
+        detail=detail,
+        instance=request.url.path,
+        code=code,
+        request_id=request_id,
+        errors=errors,
+    )
+    response_headers = {"X-Request-ID": request_id, **dict(headers or {})}
+    return JSONResponse(
+        status_code=status_code,
+        content=body.model_dump(mode="json", exclude_none=True),
+        media_type=PROBLEM_MEDIA_TYPE,
+        headers=response_headers,
+    )
+
+
+async def api_error_handler(request: Request, exc: ApiError) -> JSONResponse:
+    if exc.status_code >= 500:
+        with log_context(request_id=get_request_id(request)):
+            logger.error(
+                "api error %s on %s %s: %s",
+                exc.status_code,
+                request.method,
+                request.url.path,
+                exc.detail,
+            )
+    return problem_response(
+        request,
+        status_code=exc.status_code,
+        code=exc.code,
+        title=exc.title,
+        detail=exc.detail,
+        headers=exc.headers,
+    )
+
+
+async def validation_error_handler(
+    request: Request, exc: RequestValidationError
+) -> JSONResponse:
+    issues = []
+    for error in exc.errors()[:20]:
+        location = ".".join(str(part) for part in error.get("loc", ())) or "request"
+        issues.append(FieldIssue(location=location, message=str(error.get("msg", "Invalid value"))))
+    return problem_response(
+        request,
+        status_code=422,
+        code=ErrorCode.VALIDATION_ERROR,
+        title="Request validation failed",
+        detail="One or more request fields are invalid.",
+        errors=issues,
+    )
+
+
+async def http_exception_handler(
+    request: Request, exc: StarletteHTTPException
+) -> JSONResponse:
+    status_code = exc.status_code
+    if not 400 <= status_code <= 599:
+        logger.error(
+            "HTTPException raised with non-error status %s on %s %s",
+            status_code,
+            request.method,
+            request.url.path,
+        )
+        status_code = 500
+        code = ErrorCode.INTERNAL_ERROR
+        title = "Internal server error"
+        detail = "An unexpected error occurred."
+    else:
+        code = _HTTP_EXCEPTION_CODES.get(status_code, ErrorCode.HTTP_ERROR)
+        try:
+            title = HTTPStatus(status_code).phrase
+        except ValueError:
+            title = "Request failed"
+        detail = exc.detail.strip() if isinstance(exc.detail, str) else ""
+        detail = detail or title
+    return problem_response(
+        request,
+        status_code=status_code,
+        code=code,
+        title=title,
+        detail=detail,
+        headers=exc.headers,
+    )
+
+
+async def unhandled_exception_handler(request: Request, exc: Exception) -> JSONResponse:
+    request_id = get_request_id(request)
+    with log_context(request_id=request_id):
+        logger.error(
+            "unhandled exception on %s %s",
+            request.method,
+            request.url.path,
+            exc_info=(type(exc), exc, exc.__traceback__),
+        )
+    return problem_response(
+        request,
+        status_code=500,
+        code=ErrorCode.INTERNAL_ERROR,
+        title="Internal server error",
+        detail="An unexpected error occurred.",
+    )
+
+
+def install_error_handlers(app: FastAPI) -> None:
+    """Register the API error contract on an application."""
+    app.add_exception_handler(ApiError, api_error_handler)
+    app.add_exception_handler(RequestValidationError, validation_error_handler)
+    app.add_exception_handler(StarletteHTTPException, http_exception_handler)
+    app.add_exception_handler(Exception, unhandled_exception_handler)

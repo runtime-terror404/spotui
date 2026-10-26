@@ -11,11 +11,12 @@ reference and is never imported by the new package.
 
 ## Current status
 
-**Phase 1: application foundation.** The package, configuration, logging,
+**Phases 1–2: foundation and API base.** The package, configuration, logging,
 process lock, SQLite/Alembic setup, FastAPI lifecycle, dual-listener
-foundation, placeholder frontend, and management CLI are in place. Search,
-details, queue processing, imports, and the React UI are not implemented yet.
-The baseline audit and Phase 1 verification evidence are recorded in
+foundation, versioned API, RFC 9457 error contract, placeholder frontend, and
+management CLI are in place. Search, details, queue processing, imports, and
+the React UI are not implemented yet. The baseline audit and Phase 1
+verification evidence are recorded in
 [`docs/baseline-audit.md`](docs/baseline-audit.md).
 
 ## Requirements
@@ -89,6 +90,8 @@ configured in `lucidadl`; SpotUI does not move or modify existing media.
 ## Architecture
 
 - API routes under `/api/v1` validate contracts and call services.
+- API errors use RFC 9457 `application/problem+json` with stable `code` and
+  `request_id` extensions; request IDs also appear in redacted logs.
 - Services own use cases; provider adapters wrap Amazon, Spotify, the
   downloader, MPRIS, and audio tags.
 - SQLAlchemy/Alembic owns persistence; Pydantic schemas are separate.
