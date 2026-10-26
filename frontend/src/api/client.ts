@@ -3,6 +3,7 @@ import type {
   EntityDetail,
   EnqueueInput,
   EnqueueResponse,
+  NowPlayingResponse,
   ProblemDetails,
   ProblemIssue,
   QueueJob,
@@ -91,6 +92,12 @@ export function fetchEntityDetail(
 
 export function fetchQueue(signal?: AbortSignal): Promise<QueueSnapshot> {
   return request<QueueSnapshot>("/api/v1/queue", { signal });
+}
+
+export function fetchNowPlaying(
+  signal?: AbortSignal,
+): Promise<NowPlayingResponse> {
+  return request<NowPlayingResponse>("/api/v1/now-playing", { signal });
 }
 
 function postJson<T>(path: string, body?: unknown): Promise<T> {

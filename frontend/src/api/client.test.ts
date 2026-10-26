@@ -6,6 +6,7 @@ import {
   cancelQueueJob,
   enqueueTrack,
   fetchEntityDetail,
+  fetchNowPlaying,
   fetchQueue,
   searchAmazon,
 } from "./client";
@@ -92,6 +93,24 @@ describe("fetchEntityDetail", () => {
 
     expect(fetchMock).toHaveBeenCalledWith(
       "/api/v1/entities/detail?url=https%3A%2F%2Fmusic.amazon.in%2Falbums%2FB001",
+      expect.anything(),
+    );
+  });
+});
+
+describe("now playing", () => {
+  it("fetches current MPRIS metadata", async () => {
+    const payload = {
+      available: true,
+      track: { title: "Song", artist: "Artist" },
+      player: "spotify",
+    };
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse(payload));
+    vi.stubGlobal("fetch", fetchMock);
+
+    expect(await fetchNowPlaying()).toEqual(payload);
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/api/v1/now-playing",
       expect.anything(),
     );
   });

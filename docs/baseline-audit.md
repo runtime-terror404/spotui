@@ -150,15 +150,19 @@ test, and a clean-wheel install:
 
 - No trusted-LAN interface was available in the audit sandbox; LAN bind behavior
   is covered by injected-interface unit tests, not a live network test.
-- Spotify/Amazon fixtures are not yet captured.
-- The React frontend, search/detail services, queue worker, import matching,
-  and pairing are not implemented in this phase.
-- `lucidadl` download output capture and the final release pin remain Phase 4
-  work.
-- Legacy queue migration, installer, systemd helper, and release automation are
-  later phases.
+- Spotify/Amazon fixtures are not yet captured; routine tests use mocks rather
+  than live provider responses.
+- Spotify import/matching, the durable library index, settings, pairing, and
+  the installer are not implemented yet.
+- `lucidadl` download output capture and the final release pin remain
+  outstanding.
+- Live MPRIS reads were exercised against a paused `spotifast` session during
+  the clean-install check. Missing `playerctl`, no players, and player errors
+  remain covered by tests and are non-fatal.
+- Legacy queue migration, systemd helper, and release automation are later
+  phases.
 
-## 8. Phase 2 and Phase 3 completion
+## 8. Phase 2–5 completion
 
 Phase 2 (persistence and API base) is complete for the base layer:
 
@@ -225,6 +229,27 @@ polls every 1.5 seconds rather than using SSE. Tablet queue drawer and phone
 bottom-sheet presentations remain UI-polish follow-ups; the queue workspace is
 available on all sizes.
 
-Next is Phase 5: MPRIS/Now Playing behind an adapter, the current-track API and
-UI shortcut, and explicit non-fatal behavior when no desktop player is
-available.
+Phase 5 (MPRIS/Now Playing) is complete for the adapter/API/UI layer:
+
+- A `playerctl` adapter discovers players, prefers Spotify-compatible names,
+  supports `SPOTUI_MPRIS_PLAYER` (and legacy `SPOTGRAB_PLAYER`) overrides, and
+  maps missing binaries, timeouts, and absent players to typed availability
+  states instead of exceptions. No desktop session is required at startup.
+- `NowPlayingService` and typed `GET /api/v1/now-playing` expose `available`,
+  optional track title/artist/track ID, player, and reason. The API route omits
+  absent fields while preserving explicit unavailability.
+- The frontend header action refreshes current metadata every 10 seconds,
+  displays the current title on desktop, and searches Amazon by track title when
+  activated. Unavailable states surface a non-blocking snackbar.
+- Backend tests cover player discovery, preference, overrides, parsing,
+  timeouts, missing binary/player, and API responses. Frontend tests cover the
+  client contract, current-track search, and unavailable feedback. The
+  production build was also checked at desktop and mobile widths with a mocked
+  current track.
+
+Final checks: 271 backend tests and 20 frontend tests pass; `ruff`, the
+TypeScript typecheck, and the Vite production build are clean. A clean wheel
+install served the generated assets and returned the live paused `spotifast`
+track through `/api/v1/now-playing`, confirming the real `playerctl` adapter
+path. The missing-playerctl and idle-player branches remain mock-verified. Next
+is Phase 6: the durable library index and hard availability checks.

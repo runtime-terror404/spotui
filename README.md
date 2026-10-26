@@ -11,13 +11,14 @@ reference and is never imported by the new package.
 
 ## Current status
 
-**Phases 1–4: foundation, search/details, and the download queue.** The
-package, configuration, logging, process lock, SQLite/Alembic setup, FastAPI
-lifecycle, dual-listener foundation, versioned API, RFC 9457 error contract,
-Amazon adapters, React search/detail views, persisted download queue, managed
-worker, cancellation/retry/recovery, and queue UI are in place. Spotify import,
-Now Playing, full library indexing, settings, pairing, and SSE remain for later
-phases. The baseline audit and verification evidence are recorded in
+**Phases 1–5: foundation, search/details, the download queue, and Now
+Playing.** The package, configuration, logging, process lock, SQLite/Alembic
+setup, FastAPI lifecycle, dual-listener foundation, versioned API, RFC 9457
+error contract, Amazon adapters, React search/detail views, persisted download
+queue, managed worker, cancellation/retry/recovery, queue UI, and the optional
+MPRIS current-track shortcut are in place. Spotify import, full library
+indexing, settings, pairing, and SSE remain for later phases. The baseline audit
+and verification evidence are recorded in
 [`docs/baseline-audit.md`](docs/baseline-audit.md).
 
 ## Requirements
@@ -28,6 +29,9 @@ phases. The baseline audit and verification evidence are recorded in
 - For album/editorial-playlist details and downloads, the managed `lucidadl`
   environment plus its Cloudflare setup (`lucida setup`). Run
   `spotui deps install` explicitly; startup never installs anything.
+- Optional: `playerctl` and a running MPRIS-compatible media player for the
+  Now Playing shortcut. Missing `playerctl` or no active player is reported as
+  an availability state and never blocks startup, search, or downloads.
 
 SpotUI itself runs from a uv-managed environment. It never modifies system
 Python. `lucidadl` is managed in a separate environment under the SpotUI data
@@ -69,6 +73,7 @@ API routes:
 GET  /api/v1/health
 GET  /api/v1/search?q=...
 GET  /api/v1/entities/detail?url=...
+GET  /api/v1/now-playing
 GET  /api/v1/queue
 GET  /api/v1/queue/jobs/{id}
 POST /api/v1/queue/jobs
@@ -145,6 +150,11 @@ configured in `lucidadl`; SpotUI does not move or modify existing media.
   only the owned process group and never deletes partial output.
 - The compatibility library index reads lucidadl's completed `state.json` for
   in-library badges and batch skipping until the durable library index phase.
+- Now Playing reads MPRIS metadata through an adapter. It detects players with
+  `playerctl -l`, prefers Spotify-compatible players, and returns an explicit
+  non-fatal availability state when `playerctl` or a player is absent. Set
+  `SPOTUI_MPRIS_PLAYER` (legacy: `SPOTGRAB_PLAYER`) to force a player name.
+  The header action searches Amazon by the current track title.
 - REST and SQLite are authoritative; the queue UI currently polls, with SSE
   planned for a later phase.
 

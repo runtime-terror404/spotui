@@ -52,6 +52,11 @@ const emptyQueue = {
   },
 };
 
+const noNowPlaying = {
+  available: true,
+  reason: "No media player is running.",
+};
+
 function jsonResponse(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
     status,
@@ -87,6 +92,9 @@ describe("App search and details flow", () => {
       }
       if (url === "/api/v1/queue") {
         return jsonResponse(emptyQueue);
+      }
+      if (url === "/api/v1/now-playing") {
+        return jsonResponse(noNowPlaying);
       }
       return new Response("not found", { status: 404 });
     });
@@ -127,6 +135,9 @@ describe("App search and details flow", () => {
       if (url === "/api/v1/queue") {
         return jsonResponse(emptyQueue);
       }
+      if (url === "/api/v1/now-playing") {
+        return jsonResponse(noNowPlaying);
+      }
       if (url.startsWith("/api/v1/search")) {
         return new Response(
           JSON.stringify({
@@ -159,5 +170,69 @@ describe("App search and details flow", () => {
     );
     expect(screen.getByText(/req-503/)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Try again" })).toBeInTheDocument();
+  });
+
+  it("searches the current MPRIS track", async () => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url === "/api/v1/now-playing") {
+        return jsonResponse({
+          available: true,
+          player: "spotifast",
+          track: {
+            title: "Tum Hi Ho",
+            artist: "Arijit Singh",
+            track_id: "spotify:track:abc",
+          },
+        });
+      }
+      if (url === "/api/v1/queue") {
+        return jsonResponse(emptyQueue);
+      }
+      if (url.startsWith("/api/v1/search")) {
+        return jsonResponse({ query: "Tum Hi Ho", sections: searchData.sections });
+      }
+      return new Response("not found", { status: 404 });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    const user = userEvent.setup();
+
+    renderApp();
+    const nowPlaying = await screen.findByRole("button", {
+      name: "Search current track: Tum Hi Ho by Arijit Singh",
+    });
+    await user.click(nowPlaying);
+
+    expect(
+      screen.getByRole("searchbox", { name: "Search Amazon Music" }),
+    ).toHaveValue("Tum Hi Ho");
+    expect(
+      await screen.findByRole("button", { name: "Open Artist Arijit Singh" }),
+    ).toBeInTheDocument();
+  });
+
+  it("shows a snackbar when nothing is playing", async () => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url === "/api/v1/now-playing") {
+        return jsonResponse({
+          available: false,
+          reason: "playerctl is not installed.",
+        });
+      }
+      if (url === "/api/v1/queue") {
+        return jsonResponse(emptyQueue);
+      }
+      return new Response("not found", { status: 404 });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    const user = userEvent.setup();
+
+    renderApp();
+    await user.click(
+      await screen.findByRole("button", { name: "Now playing" }),
+    );
+
+    expect(await screen.findByText("playerctl is not installed.")).toBeInTheDocument();
   });
 });

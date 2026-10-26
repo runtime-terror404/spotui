@@ -45,3 +45,8 @@ class DownloaderUnavailableError(RuntimeError):
 
 class QueueUnavailableError(RuntimeError):
     """The download queue service is not configured."""
+
+
+class NowPlayingUnavailableError(RuntimeError):
+    """The Now Playing service is not configured."""
+

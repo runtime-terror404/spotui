@@ -23,6 +23,7 @@ from spotui.domain.errors import (
     InvalidSearchQueryError,
     JobNotFoundError,
     JobTransitionError,
+    NowPlayingUnavailableError,
     QueueUnavailableError,
 )
 from spotui.logging_setup import log_context
@@ -330,6 +331,18 @@ async def queue_unavailable_handler(
     )
 
 
+async def now_playing_unavailable_handler(
+    request: Request, exc: NowPlayingUnavailableError
+) -> JSONResponse:
+    return _queue_failure(
+        request,
+        exc,
+        status_code=503,
+        code=ErrorCode.NOW_PLAYING_UNAVAILABLE,
+        title="Now Playing unavailable",
+    )
+
+
 async def unhandled_exception_handler(request: Request, exc: Exception) -> JSONResponse:
     request_id = get_request_id(request)
     with log_context(request_id=request_id):
@@ -364,4 +377,5 @@ def install_error_handlers(app: FastAPI) -> None:
     app.add_exception_handler(DuplicateActiveJobError, duplicate_active_job_handler)
     app.add_exception_handler(DownloaderUnavailableError, downloader_unavailable_handler)
     app.add_exception_handler(QueueUnavailableError, queue_unavailable_handler)
+    app.add_exception_handler(NowPlayingUnavailableError, now_playing_unavailable_handler)
     app.add_exception_handler(Exception, unhandled_exception_handler)

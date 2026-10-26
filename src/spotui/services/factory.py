@@ -14,8 +14,10 @@ from spotui.providers.library.legacy import (
     LegacyLibraryIndex,
     default_lucidadl_state_file,
 )
+from spotui.providers.mpris.playerctl import PlayerctlMprisProvider
 from spotui.services.container import ApplicationServices
 from spotui.services.entity_details import EntityDetailsService
+from spotui.services.now_playing import NowPlayingService
 from spotui.services.queue import QueueService
 from spotui.services.search import SearchService
 from spotui.workers.download_worker import DownloadWorker
@@ -50,5 +52,6 @@ def build_application_services(
         search=SearchService(catalog, library=library),
         entity_details=EntityDetailsService(catalog, library=library),
         queue=queue,
+        now_playing=NowPlayingService(PlayerctlMprisProvider()),
         resources=(catalog,),
     )

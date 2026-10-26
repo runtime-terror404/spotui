@@ -7,6 +7,7 @@ from dataclasses import dataclass, field
 from typing import Protocol
 
 from spotui.services.entity_details import EntityDetailsService
+from spotui.services.now_playing import NowPlayingService
 from spotui.services.queue import QueueService
 from spotui.services.search import SearchService
 
@@ -22,6 +23,7 @@ class ApplicationServices:
     search: SearchService
     entity_details: EntityDetailsService
     queue: QueueService | None = None
+    now_playing: NowPlayingService | None = None
     resources: tuple[Closable, ...] = ()
     _started: bool = field(default=False, init=False)
     _closed: bool = field(default=False, init=False)

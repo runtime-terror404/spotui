@@ -127,3 +127,16 @@ export interface BatchEnqueueResponse {
   skipped_library: number;
   invalid: number;
 }
+
+export interface NowPlayingTrack {
+  title: string;
+  artist: string;
+  track_id?: string;
+}
+
+export interface NowPlayingResponse {
+  available: boolean;
+  track?: NowPlayingTrack;
+  player?: string;
+  reason?: string;
+}

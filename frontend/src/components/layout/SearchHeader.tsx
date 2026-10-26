@@ -3,6 +3,7 @@ import { useEffect, useRef } from "react";
 import { useUIStore } from "../../state/uiStore";
 import { CloseIcon, SearchIcon } from "../icons";
 import { Button } from "../ui/Button";
+import { NowPlayingButton } from "./NowPlayingButton";
 
 function isEditableTarget(target: EventTarget | null): boolean {
   if (!(target instanceof HTMLElement)) {
@@ -98,6 +99,7 @@ export function SearchHeader() {
           Search
         </Button>
       </form>
+      <NowPlayingButton />
     </header>
   );
 }

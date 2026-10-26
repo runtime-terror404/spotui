@@ -1,0 +1,1 @@
+"""MPRIS Now Playing adapters."""
