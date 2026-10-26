@@ -68,6 +68,12 @@ else
 fi
 """
 
+# The scripts intentionally refuse root. Stub `id` so the installer tests can
+# exercise a normal-user flow inside root CI containers (for example Arch).
+FAKE_ID = """#!/usr/bin/env bash
+printf '%s\\n' "${FAKE_UID:-1000}"
+"""
+
 
 @pytest.fixture
 def shell_env(tmp_path: Path) -> dict[str, str]:
@@ -81,6 +87,8 @@ def shell_env(tmp_path: Path) -> dict[str, str]:
     (stub_dir / "uv").chmod(0o755)
     (stub_dir / "curl").write_text(FAKE_CURL, encoding="utf-8")
     (stub_dir / "curl").chmod(0o755)
+    (stub_dir / "id").write_text(FAKE_ID, encoding="utf-8")
+    (stub_dir / "id").chmod(0o755)
 
     environment = {
         "HOME": str(home),
@@ -120,6 +128,25 @@ def run_script(
         env=merged,
         input=input_text,
     )
+
+
+def test_installer_and_uninstaller_refuse_root(
+    shell_env: dict[str, str], tmp_path: Path
+) -> None:
+    shell_env["FAKE_UID"] = "0"
+
+    installed = run_script(
+        INSTALL,
+        ["--wheel", str(wheel(tmp_path))],
+        environment=shell_env,
+    )
+    uninstalled = run_script(UNINSTALL, [], environment=shell_env)
+
+    assert installed.returncode == 1
+    assert "install SpotUI as your normal user, not root" in installed.stderr
+    assert uninstalled.returncode == 1
+    assert "run as your normal user, not root" in uninstalled.stderr
+    assert not (Path(shell_env["XDG_BIN_HOME"]) / "spotui").exists()
 
 
 def test_install_is_idempotent_and_registers_launcher(

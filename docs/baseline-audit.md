@@ -485,13 +485,20 @@ application and automation layers:
   unit remain at their OS-required locations. The installer and uninstaller honor
   the same root; `--purge-data` also removes leftovers from the earlier scattered
   XDG layout.
+- The first tagged-release CI run passed the Ubuntu and packaging jobs but
+  failed the Arch container job: that container runs as root, while the
+  installer tests exercise a normal-user installation and the installer
+  intentionally refuses UID 0. The test fixture now stubs `id` for the
+  normal-user flow and separately asserts that install and uninstall still
+  refuse root, preserving the guard and allowing the tests to run in root CI
+  containers.
 
-Final checks: 430 backend tests and 45 frontend tests pass; `ruff`, the
+Final checks: 431 backend tests and 45 frontend tests pass; `ruff`, the
 TypeScript typecheck, `uv lock --check`, and the Vite production build are
 clean. Local `uv build` produced the wheel and sdist; both contain the generated
 frontend, and the sdist contains both installer scripts plus the frontend
 version manifests needed to run its packaged tests. The release workflow
-generates the authoritative `SHA256SUMS` for published artifacts. All 430
+generates the authoritative `SHA256SUMS` for published artifacts. All 431
 backend tests also pass from the wheel installed in a clean Python 3.11
 environment. That
 installed wheel migrated a fresh database, produced a verified backup, generated
@@ -504,9 +511,10 @@ health/queue requests produced no access-log spam. The real installer was run
 twice against the built wheel with a real uv environment: the second run was
 idempotent and preserved data; uninstall removed only code and the launcher.
 
-Not exercised here: an actual GitHub Actions run or tagged release publication,
-live release-asset download (the checksum path is shell-tested with fixtures),
-a physical phone on an external LAN, and a complete real playlist download
-through the pinned downloader. The next step is the first tagged release and
-those manual smoke checks; no release should be published until CI runs green
-on the tagged commit.
+A tagged release was attempted on `v0.1.0`; publication was blocked by the Arch
+CI failure described above. A green CI run on the fixed commit and a moved tag
+are required before publication. Not yet exercised: a successful tagged release
+publication, live release-asset download (the checksum path is shell-tested with
+fixtures), a physical phone on an external LAN, and a complete real playlist
+download through the pinned downloader. Do not publish until CI runs green on
+the tagged commit.
