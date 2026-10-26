@@ -248,3 +248,31 @@ export interface ImportEnqueueResponse {
   duplicate: number;
   skipped_library: number;
 }
+
+export interface PairedDevice {
+  id: string;
+  label: string;
+  created_at: number;
+  last_seen_at?: number | null;
+  last_seen_ip?: string | null;
+  user_agent?: string | null;
+}
+
+export interface AuthStatus {
+  local: boolean;
+  authenticated: boolean;
+  pairing_required: boolean;
+  lan_available: boolean;
+  lan_url?: string | null;
+  device?: PairedDevice | null;
+}
+
+export interface PairingInfo {
+  code: string;
+  lan_available: boolean;
+  lan_url?: string | null;
+}
+
+export interface PairedDeviceList {
+  devices: PairedDevice[];
+}

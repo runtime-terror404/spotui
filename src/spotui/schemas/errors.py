@@ -44,6 +44,7 @@ class ErrorCode(StrEnum):
     PORT_UNAVAILABLE = "port_unavailable"
     DEVICE_UNAUTHENTICATED = "device_unauthenticated"
     PAIRING_FAILED = "pairing_failed"
+    PAIRING_UNAVAILABLE = "pairing_unavailable"
     INVALID_HOST_ORIGIN = "invalid_host_origin"
     CSRF_FAILED = "csrf_failed"
     INTERNAL_ERROR = "internal_error"

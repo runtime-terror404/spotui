@@ -20,6 +20,7 @@ from spotui.api.v1.router import router as api_router
 from spotui.persistence.database import Database, database_url_for_path
 from spotui.persistence.migrate import check_database_current
 from spotui.runtime import ApplicationRuntime
+from spotui.security.middleware import SecurityMiddleware
 
 logger = logging.getLogger("spotui.app")
 
@@ -117,6 +118,7 @@ def create_app(
         lifespan=lifespan,
     )
     app.state.runtime = runtime
+    app.add_middleware(SecurityMiddleware, runtime=runtime)
     app.add_middleware(RequestContextMiddleware)
     install_error_handlers(app)
     app.include_router(api_router)

@@ -4,7 +4,6 @@ from collections.abc import Iterator
 
 import pytest
 from fastapi import FastAPI
-from fastapi.testclient import TestClient
 
 from spotui.app import create_app
 from spotui.runtime import ApplicationRuntime
@@ -12,6 +11,7 @@ from spotui.server import Listener
 from spotui.services.container import ApplicationServices
 from spotui.services.entity_details import EntityDetailsService
 from spotui.services.search import SearchService
+from tests.api.helpers import CSRFTestClient as TestClient
 from tests.fakes import FakeCatalog
 
 

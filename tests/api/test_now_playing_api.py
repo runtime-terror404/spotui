@@ -4,7 +4,6 @@ from collections.abc import Iterator
 from dataclasses import dataclass
 
 import pytest
-from fastapi.testclient import TestClient
 
 from spotui.app import create_app
 from spotui.providers.mpris.base import NowPlayingStatus, NowPlayingTrack
@@ -14,6 +13,7 @@ from spotui.services.container import ApplicationServices
 from spotui.services.entity_details import EntityDetailsService
 from spotui.services.now_playing import NowPlayingService
 from spotui.services.search import SearchService
+from tests.api.helpers import CSRFTestClient as TestClient
 from tests.api.helpers import assert_problem
 from tests.fakes import FakeCatalog
 

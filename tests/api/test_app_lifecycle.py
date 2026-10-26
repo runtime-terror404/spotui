@@ -3,12 +3,12 @@ from __future__ import annotations
 import logging
 
 import pytest
-from fastapi.testclient import TestClient
 
 from spotui.app import create_app
 from spotui.persistence.migrate import SchemaNotCurrentError
 from spotui.runtime import ApplicationRuntime
 from spotui.server import Listener
+from tests.api.helpers import CSRFTestClient as TestClient
 
 
 def test_startup_requires_current_migrations(env, database_url: str) -> None:

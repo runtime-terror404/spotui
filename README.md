@@ -11,15 +11,16 @@ reference and is never imported by the new package.
 
 ## Current status
 
-**Phases 1–7: foundation, search/details, the download queue, Now Playing,
-the library index, and progressive Spotify imports.** The package,
-configuration, logging, process lock, SQLite/Alembic setup, FastAPI lifecycle,
-dual-listener foundation, versioned API, RFC 9457 error contract, Amazon
-adapters, React search/detail/import views, persisted download queue, managed
-worker, cancellation/retry/recovery, queue UI, optional MPRIS current-track
-shortcut, read-only multi-root library index, and Spotify candidate-review
-workspace are in place. Settings, pairing, full queue SSE, and the installer
-remain for later phases. The baseline audit and verification evidence are
+**Phases 1–8: foundation, search/details, the download queue, Now Playing,
+the library index, progressive Spotify imports, and trusted LAN pairing.** The
+package, configuration, logging, process lock, SQLite/Alembic setup, FastAPI
+lifecycle, dual-listener foundation, versioned API, RFC 9457 error contract,
+Amazon adapters, React search/detail/import views, persisted download queue,
+managed worker, cancellation/retry/recovery, queue UI, optional MPRIS
+current-track shortcut, read-only multi-root library index, Spotify
+candidate-review workspace, and paired-device LAN security are in place.
+Remaining work includes full appearance preferences, full queue SSE, release
+tooling, and the installer. The baseline audit and verification evidence are
 recorded in [`docs/baseline-audit.md`](docs/baseline-audit.md).
 
 ## Requirements
@@ -92,6 +93,11 @@ POST /api/v1/imports/{id}/sources/{source_id}/select
 POST /api/v1/imports/{id}/sources/{source_id}/skip
 POST /api/v1/imports/{id}/sources/{source_id}/search
 POST /api/v1/imports/{id}/enqueue
+GET  /api/v1/auth/status
+POST /api/v1/auth/pair
+GET  /api/v1/devices/pairing             # desktop/loopback only
+GET  /api/v1/devices                     # desktop/loopback only
+DELETE /api/v1/devices/{device_id}       # desktop/loopback only
 GET  /api/v1/queue
 GET  /api/v1/queue/jobs/{id}
 POST /api/v1/queue/jobs
@@ -105,6 +111,13 @@ Import updates use SSE and authoritative REST refreshes. Queue and library-scan
 updates currently use polling; broader SSE integration is planned for a later
 phase.
 
+State-changing API requests use a double-submit CSRF check. A normal browser is
+primed by the app bootstrap; scripts must first request a safe GET (for example
+`/api/v1/auth/status`), retain the `spotui_csrf` cookie, echo it in
+`X-CSRF-Token`, and include the `spotui_device` cookie when using the LAN
+listener. The device credential is `HttpOnly`, `SameSite=Strict`, and persists
+for one year; only its SHA-256 hash is stored in SQLite.
+
 ## Configuration
 
 Configuration is read from `$XDG_CONFIG_HOME/spotui/config.toml` (usually
@@ -115,7 +128,8 @@ settings fail startup with an actionable message.
 ```toml
 [server]
 port = 8765
-# trusted_subnet = "192.168.1.0/24"  # enables LAN listening
+# Set this only to your home IPv4 CIDR. Find it with `ip -4 addr` / `ip route`.
+# trusted_subnet = "192.168.1.0/24"
 shutdown_grace_seconds = 5.0
 
 [logging]
@@ -165,6 +179,33 @@ All XDG variables are respected. Downloaded media stays at the destination
 configured in `lucidadl`; SpotUI does not move or modify existing media. Library
 roots are a separate, read-only setting.
 
+## Trusted LAN access and pairing
+
+LAN access is off unless `server.trusted_subnet` is set and an active local IPv4
+interface falls inside that CIDR. SpotUI then serves loopback plus that exact
+interface address; it never binds `0.0.0.0`. If no matching interface exists,
+localhost remains available and `spotui status` reports LAN as unavailable.
+
+To pair a phone:
+
+1. Open SpotUI on the desktop at <http://127.0.0.1:8765/> and go to Settings.
+2. Note the LAN URL and current six-digit pairing code.
+3. Open the LAN URL on the phone while connected to the trusted home network.
+4. Enter the code; the browser receives a persistent paired-device cookie.
+
+The code changes on every server restart. Paired devices survive restarts until
+revoked from desktop Settings. Pairing attempts are rate-limited per source and
+globally. Device IP addresses are displayed for diagnostics only and are never
+used as authentication.
+
+LAN traffic is plain HTTP and is **not encrypted**. Do not forward the port
+from your router, expose SpotUI to the public Internet, or use it on untrusted
+Wi‑Fi. The persistent cookie intentionally omits the `Secure` attribute so it
+can work over this plain-HTTP LAN mode. Use a DHCP reservation for the server's
+LAN address; cookies are scoped to the host used in the browser, so opening a
+different IP may require pairing again. Host and Origin validation, CSRF
+protection, and the trusted-subnet source check remain enforced.
+
 ## Architecture
 
 - API routes under `/api/v1` validate contracts and call services.
@@ -204,6 +245,11 @@ roots are a separate, read-only setting.
   duplicate active Amazon jobs, and warns about library matches before an
   explicit override. Per-import SSE carries revision numbers; the React client
   refreshes authoritative state from REST.
+- Loopback and LAN listeners share the same app, worker, and database. LAN
+  requests are accepted only from the configured subnet and a matching local
+  interface, require Host/Origin and CSRF checks, and need a paired-device
+  cookie. Pairing codes exist only in memory and are exposed only through
+  loopback Settings; credential hashes persist in SQLite.
 - REST and SQLite are authoritative; the queue UI currently polls, with broader
   SSE planned for a later phase.
 

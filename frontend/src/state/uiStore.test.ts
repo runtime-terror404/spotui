@@ -57,4 +57,9 @@ describe("uiStore", () => {
     useUIStore.getState().openImports();
     expect(useUIStore.getState().selectedImportId).toBeNull();
   });
+
+  it("opens settings", () => {
+    useUIStore.getState().openSettings();
+    expect(useUIStore.getState().view).toBe("settings");
+  });
 });

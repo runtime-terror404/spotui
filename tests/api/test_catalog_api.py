@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import pytest
-from fastapi.testclient import TestClient
 
 from spotui.app import create_app
 from spotui.domain.errors import (
@@ -13,6 +12,7 @@ from spotui.schemas.errors import ErrorCode
 from spotui.services.container import ApplicationServices
 from spotui.services.entity_details import EntityDetailsService
 from spotui.services.search import SearchService
+from tests.api.helpers import CSRFTestClient as TestClient
 from tests.api.helpers import assert_problem
 from tests.fakes import FakeLibrary
 

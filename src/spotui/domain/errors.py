@@ -74,3 +74,23 @@ class ImportStateError(RuntimeError):
 class InvalidSelectionError(RuntimeError):
     """A candidate or source-track selection is invalid."""
 
+
+class PairingUnavailableError(RuntimeError):
+    """The trusted-device service is not configured."""
+
+
+class PairingFailedError(RuntimeError):
+    """The supplied pairing code is invalid."""
+
+
+class PairingRateLimitedError(RuntimeError):
+    """Too many failed pairing attempts were made from this or all sources."""
+
+    def __init__(self, message: str, *, retry_after_seconds: int) -> None:
+        super().__init__(message)
+        self.retry_after_seconds = max(1, retry_after_seconds)
+
+
+class DeviceNotFoundError(LookupError):
+    """The requested paired device does not exist or is already revoked."""
+

@@ -5,6 +5,7 @@ from __future__ import annotations
 from spotui.config import AppConfig
 from spotui.paths import Paths
 from spotui.persistence.database import Database
+from spotui.persistence.repositories.devices import PairedDeviceRepository
 from spotui.persistence.repositories.download_jobs import DownloadJobRepository
 from spotui.persistence.repositories.imports import ImportRepository
 from spotui.persistence.repositories.library import LibraryRepository
@@ -23,6 +24,7 @@ from spotui.services.matching import MatchingService
 from spotui.services.now_playing import NowPlayingService
 from spotui.services.queue import QueueService
 from spotui.services.search import SearchService
+from spotui.services.trusted_devices import TrustedDeviceService
 from spotui.workers.download_worker import DownloadWorker
 from spotui.workers.library_scanner import LibraryScanWorker
 from spotui.workers.matching_scheduler import MatchingWorker
@@ -79,6 +81,9 @@ def build_application_services(
         queue,
         library=library,
     )
+    trusted_devices = TrustedDeviceService(
+        PairedDeviceRepository(database.session_factory)
+    )
     return ApplicationServices(
         search=search,
         entity_details=EntityDetailsService(catalog, library=library),
@@ -86,5 +91,6 @@ def build_application_services(
         now_playing=NowPlayingService(PlayerctlMprisProvider()),
         library=library,
         imports=imports,
+        trusted_devices=trusted_devices,
         resources=(catalog,),
     )

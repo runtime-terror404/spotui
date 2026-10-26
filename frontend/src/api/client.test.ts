@@ -20,6 +20,7 @@ function jsonResponse(body: unknown, status = 200, contentType = "application/js
 
 afterEach(() => {
   vi.unstubAllGlobals();
+  document.cookie = "spotui_csrf=; Max-Age=0; Path=/";
 });
 
 describe("searchAmazon", () => {
@@ -171,5 +172,25 @@ describe("queue endpoints", () => {
     expect(fetchMock.mock.calls[0]?.[0]).toBe(
       "/api/v1/queue/jobs/a%20b/cancel",
     );
+  });
+
+  it("sends the double-submit CSRF token for unsafe requests", async () => {
+    document.cookie = "spotui_csrf=csrf-token; Path=/";
+    const fetchMock = vi.fn().mockResolvedValue(
+      jsonResponse({
+        job: { id: "job-1", title: "Song", artist: "Artist", state: "queued" },
+        duplicate: false,
+      }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    await enqueueTrack({
+      url: "https://music.amazon.com/tracks/B002TRACK1",
+      title: "Song",
+      artist: "Artist",
+    });
+
+    const init = fetchMock.mock.calls[0]?.[1] as RequestInit;
+    expect(new Headers(init.headers).get("X-CSRF-Token")).toBe("csrf-token");
   });
 });

@@ -1,6 +1,11 @@
 import { create } from "zustand";
 
-export type AppView = "search" | "detail" | "queue" | "imports";
+export type AppView =
+  | "search"
+  | "detail"
+  | "queue"
+  | "imports"
+  | "settings";
 
 interface UIState {
   view: AppView;
@@ -17,6 +22,7 @@ interface UIState {
   openSearch: () => void;
   openQueue: () => void;
   openImports: (importId?: string | null) => void;
+  openSettings: () => void;
   reset: () => void;
 }
 
@@ -52,5 +58,6 @@ export const useUIStore = create<UIState>((set) => ({
   openQueue: () => set({ view: "queue" }),
   openImports: (importId = null) =>
     set({ view: "imports", selectedImportId: importId }),
+  openSettings: () => set({ view: "settings" }),
   reset: () => set(initialState),
 }));

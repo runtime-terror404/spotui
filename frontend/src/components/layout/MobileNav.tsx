@@ -6,6 +6,7 @@ export function MobileNav() {
   const openSearch = useUIStore((state) => state.openSearch);
   const openQueue = useUIStore((state) => state.openQueue);
   const openImports = useUIStore((state) => state.openImports);
+  const openSettings = useUIStore((state) => state.openSettings);
   const setSearchScrollY = useUIStore((state) => state.setSearchScrollY);
   const searchActive = view === "search" || view === "detail";
 
@@ -46,8 +47,8 @@ export function MobileNav() {
       <button
         type="button"
         className="mobile-nav__item"
-        disabled
-        aria-label="Settings, not available yet"
+        aria-current={view === "settings" ? "page" : undefined}
+        onClick={openSettings}
       >
         <SettingsIcon />
         <span>Settings</span>

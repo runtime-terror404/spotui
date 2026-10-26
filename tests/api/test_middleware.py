@@ -2,9 +2,8 @@ from __future__ import annotations
 
 import logging
 
-from fastapi.testclient import TestClient
-
 from spotui.logging_setup import setup_logging
+from tests.api.helpers import CSRFTestClient as TestClient
 
 
 def test_access_log_contains_request_id_and_status(env, app) -> None:

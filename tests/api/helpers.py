@@ -1,6 +1,21 @@
 from __future__ import annotations
 
+from fastapi.testclient import TestClient
+
 from spotui.schemas.errors import ErrorCode
+from spotui.security.cookies import CSRF_COOKIE_NAME
+
+
+class CSRFTestClient(TestClient):
+    """Test client that primes the double-submit cookie on context entry."""
+
+    def __enter__(self):
+        client = super().__enter__()
+        super().get("/api/v1/health")
+        token = self.cookies.get(CSRF_COOKIE_NAME)
+        if token:
+            self.headers["X-CSRF-Token"] = token
+        return client
 
 
 def assert_problem(response, status_code: int, code: ErrorCode) -> dict:

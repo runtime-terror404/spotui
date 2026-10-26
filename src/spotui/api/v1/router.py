@@ -3,6 +3,7 @@ from __future__ import annotations
 from fastapi import APIRouter
 
 from spotui.api.v1.routes import (
+    devices,
     entities,
     health,
     imports,
@@ -20,3 +21,4 @@ router.include_router(queue.router, tags=["queue"])
 router.include_router(now_playing.router, tags=["now-playing"])
 router.include_router(library.router, tags=["library"])
 router.include_router(imports.router, tags=["imports"])
+router.include_router(devices.router, tags=["devices"])

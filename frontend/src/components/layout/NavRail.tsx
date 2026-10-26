@@ -6,6 +6,7 @@ export function NavRail() {
   const openSearch = useUIStore((state) => state.openSearch);
   const openQueue = useUIStore((state) => state.openQueue);
   const openImports = useUIStore((state) => state.openImports);
+  const openSettings = useUIStore((state) => state.openSettings);
   const setSearchScrollY = useUIStore((state) => state.setSearchScrollY);
   const searchActive = view === "search" || view === "detail";
 
@@ -65,10 +66,10 @@ export function NavRail() {
         <li>
           <button
             type="button"
-            className="nav-item"
-            disabled
-            aria-label="Settings, not available yet"
-            title="Settings are not available yet"
+            className={`nav-item ${view === "settings" ? "is-active" : ""}`.trim()}
+            aria-current={view === "settings" ? "page" : undefined}
+            aria-label="Settings"
+            onClick={openSettings}
           >
             <SettingsIcon />
             <span>Settings</span>

@@ -1,13 +1,13 @@
 interface SectionHeadingProps {
   title: string;
-  count: number;
+  count?: number;
 }
 
 export function SectionHeading({ title, count }: SectionHeadingProps) {
   return (
     <div className="section-heading">
       <h2>{title}</h2>
-      <span className="count-pill">{count}</span>
+      {count !== undefined ? <span className="count-pill">{count}</span> : null}
     </div>
   );
 }

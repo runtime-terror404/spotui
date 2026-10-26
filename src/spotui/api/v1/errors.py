@@ -19,6 +19,7 @@ from spotui.domain.errors import (
     CatalogResponseError,
     CatalogTimeoutError,
     CatalogUnavailableError,
+    DeviceNotFoundError,
     DownloaderUnavailableError,
     DuplicateActiveJobError,
     ImportNotFoundError,
@@ -30,6 +31,9 @@ from spotui.domain.errors import (
     JobTransitionError,
     LibraryUnavailableError,
     NowPlayingUnavailableError,
+    PairingFailedError,
+    PairingRateLimitedError,
+    PairingUnavailableError,
     QueueUnavailableError,
 )
 from spotui.domain.spotify import (
@@ -462,6 +466,57 @@ async def invalid_selection_handler(
     )
 
 
+async def pairing_unavailable_handler(
+    request: Request, exc: PairingUnavailableError
+) -> JSONResponse:
+    return _service_failure(
+        request,
+        exc,
+        status_code=503,
+        code=ErrorCode.PAIRING_UNAVAILABLE,
+        title="Pairing unavailable",
+    )
+
+
+async def pairing_failed_handler(
+    request: Request, exc: PairingFailedError
+) -> JSONResponse:
+    return _service_failure(
+        request,
+        exc,
+        status_code=403,
+        code=ErrorCode.PAIRING_FAILED,
+        title="Pairing failed",
+    )
+
+
+async def pairing_rate_limited_handler(
+    request: Request, exc: PairingRateLimitedError
+) -> JSONResponse:
+    with log_context(request_id=get_request_id(request)):
+        logger.warning("pairing rate limited: %s", exc)
+    return problem_response(
+        request,
+        status_code=429,
+        code=ErrorCode.RATE_LIMITED,
+        title="Too many pairing attempts",
+        detail=str(exc),
+        headers={"Retry-After": str(exc.retry_after_seconds)},
+    )
+
+
+async def device_not_found_handler(
+    request: Request, exc: DeviceNotFoundError
+) -> JSONResponse:
+    return _service_failure(
+        request,
+        exc,
+        status_code=404,
+        code=ErrorCode.NOT_FOUND,
+        title="Paired device not found",
+    )
+
+
 async def unhandled_exception_handler(request: Request, exc: Exception) -> JSONResponse:
     request_id = get_request_id(request)
     with log_context(request_id=request_id):
@@ -506,4 +561,10 @@ def install_error_handlers(app: FastAPI) -> None:
     app.add_exception_handler(ActiveImportConflictError, active_import_conflict_handler)
     app.add_exception_handler(ImportStateError, import_state_handler)
     app.add_exception_handler(InvalidSelectionError, invalid_selection_handler)
+    app.add_exception_handler(PairingUnavailableError, pairing_unavailable_handler)
+    app.add_exception_handler(PairingFailedError, pairing_failed_handler)
+    app.add_exception_handler(
+        PairingRateLimitedError, pairing_rate_limited_handler
+    )
+    app.add_exception_handler(DeviceNotFoundError, device_not_found_handler)
     app.add_exception_handler(Exception, unhandled_exception_handler)

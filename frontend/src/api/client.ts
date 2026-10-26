@@ -1,4 +1,5 @@
 import type {
+  AuthStatus,
   BatchEnqueueResponse,
   EntityDetail,
   EnqueueInput,
@@ -7,6 +8,8 @@ import type {
   ImportListResponse,
   ImportSessionDetail,
   NowPlayingResponse,
+  PairedDeviceList,
+  PairingInfo,
   ProblemDetails,
   ProblemIssue,
   QueueJob,
@@ -37,10 +40,30 @@ export class NetworkProblem extends Error {
   }
 }
 
+const SAFE_METHODS = new Set(["GET", "HEAD", "OPTIONS"]);
+
+function readCookie(name: string): string | undefined {
+  const prefix = `${name}=`;
+  for (const item of document.cookie.split(";")) {
+    const value = item.trim();
+    if (value.startsWith(prefix)) {
+      return decodeURIComponent(value.slice(prefix.length));
+    }
+  }
+  return undefined;
+}
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
+  const method = (init?.method ?? "GET").toUpperCase();
   const headers = new Headers(init?.headers);
   if (!headers.has("Accept")) {
     headers.set("Accept", "application/json");
+  }
+  if (!SAFE_METHODS.has(method) && !headers.has("X-CSRF-Token")) {
+    const csrfToken = readCookie("spotui_csrf");
+    if (csrfToken) {
+      headers.set("X-CSRF-Token", csrfToken);
+    }
   }
   let response: Response;
   try {
@@ -215,5 +238,42 @@ export function enqueueImportSelected(
   return postJson<ImportEnqueueResponse>(
     `/api/v1/imports/${encodeURIComponent(sessionId)}/enqueue`,
     { force_library: forceLibrary },
+  );
+}
+
+export function fetchAuthStatus(signal?: AbortSignal): Promise<AuthStatus> {
+  return request<AuthStatus>("/api/v1/auth/status", {
+    signal,
+    cache: "no-store",
+  });
+}
+
+export function pairBrowser(
+  code: string,
+  label?: string,
+): Promise<AuthStatus> {
+  return postJson<AuthStatus>("/api/v1/auth/pair", { code, label });
+}
+
+export function fetchPairingInfo(signal?: AbortSignal): Promise<PairingInfo> {
+  return request<PairingInfo>("/api/v1/devices/pairing", {
+    signal,
+    cache: "no-store",
+  });
+}
+
+export function fetchPairedDevices(
+  signal?: AbortSignal,
+): Promise<PairedDeviceList> {
+  return request<PairedDeviceList>("/api/v1/devices", {
+    signal,
+    cache: "no-store",
+  });
+}
+
+export function revokePairedDevice(deviceId: string): Promise<void> {
+  return request<void>(
+    `/api/v1/devices/${encodeURIComponent(deviceId)}`,
+    { method: "DELETE" },
   );
 }

@@ -402,6 +402,26 @@ class SourceTrack(Base):
     )
 
 
+class PairedDevice(Base):
+    """A browser device authenticated by a hashed persistent credential."""
+
+    __tablename__ = "paired_devices"
+
+    id: Mapped[str] = mapped_column(String(32), primary_key=True)
+    credential_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    label: Mapped[str] = mapped_column(Text, nullable=False)
+    created_at: Mapped[int] = mapped_column(Integer, nullable=False, default=_utc_epoch)
+    last_seen_at: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    last_seen_ip: Mapped[str | None] = mapped_column(Text, nullable=True)
+    user_agent: Mapped[str | None] = mapped_column(Text, nullable=True)
+    revoked_at: Mapped[int | None] = mapped_column(Integer, nullable=True)
+
+    __table_args__ = (
+        Index("ux_paired_devices_credential_hash", "credential_hash", unique=True),
+        Index("ix_paired_devices_revoked_at", "revoked_at"),
+    )
+
+
 class AmazonCandidate(Base):
     """A ranked Amazon result for one source occurrence."""
 

@@ -3,10 +3,10 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
-from fastapi.testclient import TestClient
 
 from spotui.app import create_app
 from spotui.schemas.errors import ErrorCode
+from tests.api.helpers import CSRFTestClient as TestClient
 from tests.api.helpers import assert_problem
 
 

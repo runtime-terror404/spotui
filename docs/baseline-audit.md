@@ -153,7 +153,8 @@ test, and a clean-wheel install:
 - Amazon fixtures remain synthetic; routine tests use mocks rather than live
   provider responses. Spotify embed parsing has saved synthetic fixtures and
   was also exercised against live public pages.
-- Settings, pairing, and the installer are not implemented yet.
+- Appearance/accessibility preferences in Settings and the installer/release
+  tooling are not implemented yet.
 - `lucidadl` download output capture and the final release pin remain
   outstanding.
 - Live MPRIS reads were exercised against a paused `spotifast` session during
@@ -165,13 +166,13 @@ test, and a clean-wheel install:
 - Legacy queue migration, systemd helper, and release automation are later
   phases.
 
-## 8. Phase 2–7 completion
+## 8. Phase 2–8 completion
 
 Phase 2 (persistence and API base) is complete for the base layer:
 
 - The initial `download_jobs` schema and active-job uniqueness constraint are
-  in place. Later migrations add job attempts, the library index, and Spotify
-  import/session/candidate tables; paired-device tables remain with Phase 8.
+  in place. Later migrations add job attempts, the library index, Spotify
+  import/session/candidate tables, and paired-device credentials.
 - API routing remains under `/api/v1`, with typed health and error schemas.
 - API failures use RFC 9457 `application/problem+json` with stable error codes,
   a request-ID extension, safe validation details, and redacted logging.
@@ -191,7 +192,7 @@ Phase 3 (search and entity details) is complete for the adapter/UI layer:
 - The React/TypeScript/Vite UI implements the search and entity-detail flows,
   inline loading/error/empty states, back-navigation restoration, keyboard
   focus, responsive layout, and light/dark tokens. Queue was enabled in Phase 4;
-  Settings remains disabled until its phase.
+  Settings was enabled in Phase 8 for trusted-network access management.
 - The Vite build writes into `src/spotui/web/dist/`; hatchling packages those
   generated assets into both wheel and sdist. A clean wheel install served the
   built frontend and assets successfully.
@@ -334,9 +335,54 @@ read the SSE revision stream, and cancelled cleanly with no queued jobs deleted
 or server errors. The import workspace was also rendered at desktop and mobile
 widths with no horizontal overflow.
 
-Final checks: 361 backend tests and 25 frontend tests pass; `ruff`, the
-TypeScript typecheck, the Vite production build, and `uv lock --check` are
-clean. Clean-install checks verified migration through `0004_spotify_imports`,
-live public Spotify extraction, the packaged Imports UI, import creation,
-pause/cancel, SSE revisions, and no server errors. The next feature phase is
-Phase 8: pairing and LAN hardening.
+Final checks at the end of Phase 7: 361 backend tests and 25 frontend tests
+passed; `ruff`, the TypeScript typecheck, the Vite production build, and
+`uv lock --check` were clean. Clean-install checks verified migration through
+`0004_spotify_imports`, live public Spotify extraction, the packaged Imports
+UI, import creation, pause/cancel, SSE revisions, and no server errors.
+
+Phase 8 (pairing and LAN hardening) is complete for the security/API/UI layer:
+
+- Loopback plus one trusted-LAN listener remain one uvicorn server with one
+  lifespan, worker, and database. LAN is selected only from the configured
+  IPv4 CIDR; wildcard binding remains prohibited and a missing interface keeps
+  localhost available.
+- Listener-aware middleware validates Host against the actual accepted socket,
+  validates Origin on writes, and enforces a double-submit CSRF token on every
+  state-changing request. Requests to the LAN listener must also originate in
+  the trusted subnet.
+- A cryptographically random six-digit code is generated per service start.
+  Only loopback Settings/API can read it; LAN status responses never include
+  it, and LAN responses are marked `no-store`.
+- Pairing is password-style rate-limited per source (5 failures/15 minutes) and
+  globally (30 failures/15 minutes), with lockout and `Retry-After` responses.
+  Only a SHA-256 hash of the persistent browser credential is stored.
+- The device cookie is `HttpOnly`, `SameSite=Strict`, and intentionally omits
+  `Secure` because LAN transport is plain HTTP. It persists across restarts
+  until explicit revocation; IP observations are diagnostic only.
+- LAN requests can load only the HTML shell, assets, health, and auth/pairing
+  endpoints unauthenticated. Other APIs require a valid device cookie. Pairing
+  code and paired-device list/revocation routes are loopback-only.
+- Local and LAN Settings surfaces show pairing status, the LAN URL, the code
+  (loopback only), device last-seen metadata, revocation confirmation, and the
+  plain-HTTP warning. The frontend gates unpaired LAN browsers with a pairing
+  screen and auto-attaches CSRF headers.
+- Migration `0005` adds hashed paired-device credentials and revocation state.
+- Tests cover Host/Origin/CSRF failures, untrusted subnet sources, loopback-only
+  code/device routes, pairing success/failure, rate limits, cookie attributes,
+  persistent cookies across app restarts, revocation invalidation, no raw token
+  storage, and no pairing-code leakage through LAN responses or logs.
+
+Final checks: 375 backend tests and 31 frontend tests pass; `ruff`, the
+TypeScript typecheck, and the Vite production build are clean. A clean wheel
+install migrated through `0005_paired_devices` and ran a real dual-socket
+uvicorn server on loopback aliases (`127.0.0.1` local and `127.0.0.2` LAN):
+invalid Host and missing CSRF were rejected, a LAN browser paired with the
+loopback-only code, the credential was stored only as a 64-character hash,
+LAN device management was denied, and local revocation invalidated the cookie.
+The packaged pairing/settings UI was checked at desktop and phone widths with
+no horizontal overflow. No external LAN interface was exposed; subnet selection
+and wildcard rejection remain covered by injected-interface and binding tests.
+
+The next feature phase is Phase 9: installer, legacy migration, release tooling,
+and final documentation.

@@ -7,6 +7,7 @@ import { ImportsPage } from "../features/imports/ImportsPage";
 import { QueuePage } from "../features/queue/QueuePage";
 import { QueuePanel } from "../features/queue/QueuePanel";
 import { SearchView } from "../features/search/SearchView";
+import { SettingsPage } from "../features/settings/SettingsPage";
 import { useUIStore } from "../state/uiStore";
 
 export function AppShell() {
@@ -25,6 +26,7 @@ export function AppShell() {
           <main id="main-content" className="workspace__main" tabIndex={-1}>
             {view === "queue" ? <QueuePage /> : null}
             {view === "imports" ? <ImportsPage /> : null}
+            {view === "settings" ? <SettingsPage /> : null}
             {view === "detail" && detailUrl ? (
               <EntityDetailView url={detailUrl} />
             ) : null}

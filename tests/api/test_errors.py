@@ -4,13 +4,13 @@ import logging
 
 import pytest
 from fastapi import APIRouter
-from fastapi.testclient import TestClient
 from pydantic import BaseModel, ConfigDict
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from spotui.api.v1.errors import ApiError
 from spotui.logging_setup import setup_logging
 from spotui.schemas.errors import ErrorCode
+from tests.api.helpers import CSRFTestClient as TestClient
 from tests.api.helpers import assert_problem
 
 
