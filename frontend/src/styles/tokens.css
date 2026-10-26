@@ -17,8 +17,10 @@
   --color-error: #ba1a1a;
   --color-error-container: #ffdad6;
   --color-warning: #805600;
+  --color-warning-container: #ffdea6;
   --header-surface: rgba(248, 247, 252, 0.86);
   --shadow-float: 0 12px 32px rgba(36, 20, 59, 0.14);
+  --queue-panel-width: 320px;
 
   --font-sans: Roboto, "Segoe UI", system-ui, -apple-system, sans-serif;
   --font-mono: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
@@ -62,6 +64,7 @@
     --color-error: #ffb4ab;
     --color-error-container: #4a1b1b;
     --color-warning: #f2c078;
+    --color-warning-container: #4a3800;
     --header-surface: rgba(20, 18, 24, 0.84);
     --shadow-float: 0 16px 40px rgba(0, 0, 0, 0.34);
 

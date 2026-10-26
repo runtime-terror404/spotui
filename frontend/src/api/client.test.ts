@@ -1,6 +1,14 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { ApiProblem, NetworkProblem, fetchEntityDetail, searchAmazon } from "./client";
+import {
+  ApiProblem,
+  NetworkProblem,
+  cancelQueueJob,
+  enqueueTrack,
+  fetchEntityDetail,
+  fetchQueue,
+  searchAmazon,
+} from "./client";
 
 function jsonResponse(body: unknown, status = 200, contentType = "application/json") {
   return new Response(JSON.stringify(body), {
@@ -25,8 +33,10 @@ describe("searchAmazon", () => {
     expect(result.query).toBe("arijit singh");
     expect(fetchMock).toHaveBeenCalledWith(
       "/api/v1/search?q=arijit+singh",
-      expect.objectContaining({ headers: { Accept: "application/json" } }),
+      expect.anything(),
     );
+    const init = fetchMock.mock.calls[0]?.[1] as RequestInit;
+    expect(new Headers(init.headers).get("Accept")).toBe("application/json");
   });
 
   it("maps problem+json errors to ApiProblem", async () => {
@@ -83,6 +93,64 @@ describe("fetchEntityDetail", () => {
     expect(fetchMock).toHaveBeenCalledWith(
       "/api/v1/entities/detail?url=https%3A%2F%2Fmusic.amazon.in%2Falbums%2FB001",
       expect.anything(),
+    );
+  });
+});
+
+describe("queue endpoints", () => {
+  it("fetches the queue snapshot", async () => {
+    const snapshot = {
+      jobs: [],
+      counts: {
+        queued: 0,
+        active: 0,
+        completed: 0,
+        failed: 0,
+        cancelled: 0,
+        interrupted: 0,
+      },
+    };
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse(snapshot));
+    vi.stubGlobal("fetch", fetchMock);
+
+    expect(await fetchQueue()).toEqual(snapshot);
+    expect(fetchMock).toHaveBeenCalledWith("/api/v1/queue", expect.anything());
+  });
+
+  it("posts an enqueue request as JSON", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      jsonResponse({
+        job: { id: "job-1", title: "Song", artist: "Artist", state: "queued" },
+        duplicate: false,
+      }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    await enqueueTrack({
+      url: "https://music.amazon.com/tracks/B002TRACK1",
+      title: "Song",
+      artist: "Artist",
+    });
+
+    const init = fetchMock.mock.calls[0]?.[1] as RequestInit;
+    expect(fetchMock.mock.calls[0]?.[0]).toBe("/api/v1/queue/jobs");
+    expect(init.method).toBe("POST");
+    expect(JSON.parse(String(init.body))).toEqual({
+      url: "https://music.amazon.com/tracks/B002TRACK1",
+      title: "Song",
+      artist: "Artist",
+    });
+    expect(new Headers(init.headers).get("Content-Type")).toBe("application/json");
+  });
+
+  it("encodes job IDs for cancel", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ id: "a b" }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await cancelQueueJob("a b");
+
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(
+      "/api/v1/queue/jobs/a%20b/cancel",
     );
   });
 });

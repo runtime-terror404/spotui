@@ -15,6 +15,9 @@ def test_defaults(env) -> None:
     assert config.logging.level == "INFO"
     assert config.logging.max_bytes == 5 * 1024 * 1024
     assert config.logging.backup_count == 5
+    assert config.queue.cancel_grace_seconds == 5.0
+    assert config.queue.shutdown_grace_seconds == 5.0
+    assert config.queue.job_timeout_seconds == 900.0
 
 
 def test_file_values_override_defaults(env) -> None:
@@ -30,6 +33,11 @@ shutdown_grace_seconds = 2.5
 level = "debug"
 max_bytes = 1024
 backup_count = 2
+
+[queue]
+cancel_grace_seconds = 2.0
+shutdown_grace_seconds = 3.0
+job_timeout_seconds = 600.0
 """,
     )
 
@@ -41,6 +49,9 @@ backup_count = 2
     assert config.logging.level == "DEBUG"
     assert config.logging.max_bytes == 1024
     assert config.logging.backup_count == 2
+    assert config.queue.cancel_grace_seconds == 2.0
+    assert config.queue.shutdown_grace_seconds == 3.0
+    assert config.queue.job_timeout_seconds == 600.0
 
 
 def test_environment_overrides_file_and_cli_overrides_environment(env) -> None:
@@ -61,6 +72,21 @@ def test_environment_subnet_override(env) -> None:
     config = load_config(env.paths, environ={"SPOTUI_TRUSTED_SUBNET": "10.0.0.0/24"})
 
     assert config.server.trusted_subnet == "10.0.0.0/24"
+
+
+def test_queue_environment_overrides(env) -> None:
+    config = load_config(
+        env.paths,
+        environ={
+            "SPOTUI_CANCEL_GRACE_SECONDS": "1.5",
+            "SPOTUI_QUEUE_SHUTDOWN_GRACE_SECONDS": "2.5",
+            "SPOTUI_JOB_TIMEOUT_SECONDS": "600",
+        },
+    )
+
+    assert config.queue.cancel_grace_seconds == 1.5
+    assert config.queue.shutdown_grace_seconds == 2.5
+    assert config.queue.job_timeout_seconds == 600.0
 
 
 def test_empty_trusted_subnet_means_localhost_only(env) -> None:
@@ -114,3 +140,9 @@ def test_missing_explicit_config_file_is_an_error(env) -> None:
 def test_invalid_environment_number_is_reported(env) -> None:
     with pytest.raises(ConfigError, match="SPOTUI_LOG_MAX_BYTES"):
         load_config(env.paths, environ={"SPOTUI_LOG_MAX_BYTES": "many"})
+
+
+@pytest.mark.parametrize("value", ["-1", "61", "not-a-number"])
+def test_invalid_queue_grace_is_rejected(env, value: str) -> None:
+    with pytest.raises(ConfigError, match="cancel_grace_seconds|SPOTUI_CANCEL_GRACE_SECONDS"):
+        load_config(env.paths, environ={"SPOTUI_CANCEL_GRACE_SECONDS": value})

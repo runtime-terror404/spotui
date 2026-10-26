@@ -1,7 +1,12 @@
 import type {
+  BatchEnqueueResponse,
   EntityDetail,
+  EnqueueInput,
+  EnqueueResponse,
   ProblemDetails,
   ProblemIssue,
+  QueueJob,
+  QueueSnapshot,
   SearchResponse,
 } from "./types";
 
@@ -29,11 +34,15 @@ export class NetworkProblem extends Error {
 }
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
+  const headers = new Headers(init?.headers);
+  if (!headers.has("Accept")) {
+    headers.set("Accept", "application/json");
+  }
   let response: Response;
   try {
     response = await fetch(path, {
-      headers: { Accept: "application/json" },
       ...init,
+      headers,
     });
   } catch {
     throw new NetworkProblem();
@@ -78,4 +87,34 @@ export function fetchEntityDetail(
     `/api/v1/entities/detail?${params.toString()}`,
     { signal },
   );
+}
+
+export function fetchQueue(signal?: AbortSignal): Promise<QueueSnapshot> {
+  return request<QueueSnapshot>("/api/v1/queue", { signal });
+}
+
+function postJson<T>(path: string, body?: unknown): Promise<T> {
+  return request<T>(path, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: body === undefined ? undefined : JSON.stringify(body),
+  });
+}
+
+export function enqueueTrack(input: EnqueueInput): Promise<EnqueueResponse> {
+  return postJson<EnqueueResponse>("/api/v1/queue/jobs", input);
+}
+
+export function enqueueBatch(
+  items: EnqueueInput[],
+): Promise<BatchEnqueueResponse> {
+  return postJson<BatchEnqueueResponse>("/api/v1/queue/batch", { items });
+}
+
+export function cancelQueueJob(jobId: string): Promise<QueueJob> {
+  return postJson<QueueJob>(`/api/v1/queue/jobs/${encodeURIComponent(jobId)}/cancel`);
+}
+
+export function retryQueueJob(jobId: string): Promise<QueueJob> {
+  return postJson<QueueJob>(`/api/v1/queue/jobs/${encodeURIComponent(jobId)}/retry`);
 }

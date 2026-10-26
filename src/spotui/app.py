@@ -65,6 +65,23 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         raise
     runtime.database = database
 
+    try:
+        if runtime.services is None and runtime.services_factory is not None:
+            runtime.services = runtime.services_factory(
+                runtime.config,
+                runtime.paths,
+                database,
+            )
+        if runtime.services is not None:
+            runtime.services.start()
+    except Exception:
+        if runtime.services is not None:
+            runtime.services.close()
+        database.dispose()
+        runtime.database = None
+        logger.exception("service startup failed")
+        raise
+
     urls = [listener.url for listener in runtime.listeners]
     logger.info(
         "SpotUI %s starting; listeners=%s database=%s",

@@ -38,4 +38,14 @@ describe("uiStore", () => {
     expect(useUIStore.getState().view).toBe("search");
     expect(useUIStore.getState().searchScrollY).toBe(0);
   });
+
+  it("switches between search and queue without losing the query", () => {
+    useUIStore.getState().submitSearch("arijit");
+    useUIStore.getState().openQueue();
+    expect(useUIStore.getState().view).toBe("queue");
+
+    useUIStore.getState().openSearch();
+    expect(useUIStore.getState().view).toBe("search");
+    expect(useUIStore.getState().submittedQuery).toBe("arijit");
+  });
 });

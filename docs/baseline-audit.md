@@ -189,13 +189,42 @@ Phase 3 (search and entity details) is complete for the adapter/UI layer:
   generated assets into both wheel and sdist. A clean wheel install served the
   built frontend and assets successfully.
 
-Routine tests use mocked providers; no live Amazon request, managed-lucidadl
-environment, or download was exercised in the sandbox. The generated provider
-fixtures are synthetic, not captured live responses. `spotui deps check`
-reports the SpotUI Playwright/Chromium runtime and the managed downloader
-status.
+Routine tests use mocked providers; no live Amazon request was exercised in the
+sandbox. The generated provider fixtures are synthetic, not captured live
+responses. `spotui deps check` reports the SpotUI Playwright/Chromium runtime
+and the managed downloader status.
 
-Next is Phase 4: the persisted download queue/worker, explicit retry and
-cancellation, shutdown/recovery behavior, and the compatibility library-dedup
-step. Phase 4 must capture real pinned-lucidadl output before finalizing
-numeric progress parsing or the release pin.
+Phase 4 (download queue and worker) is complete for the implementation layer:
+
+- Migration `0002` adds job-attempt history with foreign-key cleanup, unique
+  attempt numbers, terminal outcomes, and prior-schema upgrade coverage.
+- A transactional repository enforces idempotent enqueue, active-track
+  uniqueness, FIFO claiming, attempts, retry, cancellation requests, terminal
+  states, and restart recovery. Interrupted active jobs never restart
+  automatically; pending queued jobs remain queued.
+- The managed lucidadl adapter starts only its exact executable/process group,
+  parses documented phase/summary lines with bounded state, ignores unreliable
+  percentages, escalates graceful cancellation to forced termination, preserves
+  partial files, and never kills unrelated processes.
+- The single worker supports bounded job timeout, shutdown grace, explicit
+  cancellation, restart interruption, and explicit retry. One download runs at
+  a time.
+- Typed queue APIs cover snapshot/get/enqueue/batch/cancel/retry with
+  problem-details mapping. Batch enqueue preserves the legacy library-skip
+  behavior.
+- A compatibility library index restores in-library badges and batch skip
+  behavior from lucidadl's completed state without modifying media.
+- The React UI adds individual/bulk download actions, a compact desktop queue
+  panel, a full queue manager, responsive mobile navigation, status messaging,
+  cancellation/retry, and short-lived snackbars. It deliberately shows no
+  percentages or unsupported removal/history controls.
+
+Live downloader output capture and the final lucidadl pin remain outstanding:
+no managed environment/download was run in the sandbox. The queue UI currently
+polls every 1.5 seconds rather than using SSE. Tablet queue drawer and phone
+bottom-sheet presentations remain UI-polish follow-ups; the queue workspace is
+available on all sizes.
+
+Next is Phase 5: MPRIS/Now Playing behind an adapter, the current-track API and
+UI shortcut, and explicit non-fatal behavior when no desktop player is
+available.

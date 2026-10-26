@@ -1,0 +1,1 @@
+"""Managed downloader process adapters."""

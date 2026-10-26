@@ -3,7 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 
 import { searchAmazon } from "../../api/client";
 import { errorMessage, errorRequestId } from "../../api/errors";
-import type { SearchSection } from "../../api/types";
+import type { SearchSection, TrackResult } from "../../api/types";
 import { CatalogCard } from "../../components/catalog/CatalogCard";
 import { TrackRow } from "../../components/catalog/TrackRow";
 import { MusicIcon } from "../../components/icons";
@@ -11,6 +11,7 @@ import { EmptyState } from "../../components/ui/EmptyState";
 import { ErrorState } from "../../components/ui/ErrorState";
 import { SectionHeading } from "../../components/ui/SectionHeading";
 import { useUIStore } from "../../state/uiStore";
+import { useEnqueueTrack } from "../queue/hooks";
 
 function SearchSkeleton() {
   return (
@@ -33,9 +34,15 @@ function SearchSkeleton() {
 function ResultsSection({
   section,
   onOpen,
+  onDownload,
+  downloadBusyUrl,
+  downloadDisabled,
 }: {
   section: SearchSection;
   onOpen: (url: string) => void;
+  onDownload: (track: TrackResult) => void;
+  downloadBusyUrl?: string;
+  downloadDisabled: boolean;
 }) {
   const headingId = useId();
   return (
@@ -45,18 +52,24 @@ function ResultsSection({
       </div>
       {section.kind === "track" ? (
         <div className="track-list">
-          {section.items.map((item) => (
-            <TrackRow
-              key={item.url}
-              track={{
-                title: item.title,
-                artist: item.subtitle,
-                url: item.url,
-                image: item.image,
-                in_library: item.in_library,
-              }}
-            />
-          ))}
+          {section.items.map((item) => {
+            const track: TrackResult = {
+              title: item.title,
+              artist: item.subtitle,
+              url: item.url,
+              image: item.image,
+              in_library: item.in_library,
+            };
+            return (
+              <TrackRow
+                key={item.url}
+                track={track}
+                onDownload={onDownload}
+                downloadBusy={downloadBusyUrl === item.url}
+                downloadDisabled={downloadDisabled}
+              />
+            );
+          })}
         </div>
       ) : (
         <div
@@ -77,6 +90,8 @@ export function SearchView() {
   const submittedQuery = useUIStore((state) => state.submittedQuery);
   const openDetail = useUIStore((state) => state.openDetail);
   const setSearchScrollY = useUIStore((state) => state.setSearchScrollY);
+  const enqueue = useEnqueueTrack();
+  const pendingUrl = enqueue.isPending ? enqueue.variables?.url : undefined;
 
   const search = useQuery({
     queryKey: ["search", submittedQuery],
@@ -89,6 +104,14 @@ export function SearchView() {
   const open = (url: string) => {
     setSearchScrollY(window.scrollY);
     openDetail(url);
+  };
+
+  const downloadTrack = (track: TrackResult) => {
+    enqueue.mutate({
+      url: track.url,
+      title: track.title,
+      artist: track.artist,
+    });
   };
 
   if (!submittedQuery) {
@@ -140,6 +163,9 @@ export function SearchView() {
           key={`${section.kind}:${section.title}`}
           section={section}
           onOpen={open}
+          onDownload={downloadTrack}
+          downloadBusyUrl={pendingUrl}
+          downloadDisabled={enqueue.isPending}
         />
       ))}
     </div>

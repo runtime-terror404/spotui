@@ -75,11 +75,20 @@ class LoggingSettings(BaseModel):
         return level
 
 
+class QueueSettings(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    cancel_grace_seconds: float = Field(default=5.0, ge=0.0, le=60.0)
+    shutdown_grace_seconds: float = Field(default=5.0, ge=0.0, le=60.0)
+    job_timeout_seconds: float = Field(default=900.0, ge=10.0, le=7200.0)
+
+
 class AppConfig(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
     server: ServerSettings = Field(default_factory=ServerSettings)
     logging: LoggingSettings = Field(default_factory=LoggingSettings)
+    queue: QueueSettings = Field(default_factory=QueueSettings)
 
 
 _ENV_SETTINGS: dict[str, tuple[str, str, type[Any]]] = {
@@ -89,6 +98,9 @@ _ENV_SETTINGS: dict[str, tuple[str, str, type[Any]]] = {
     "SPOTUI_LOG_LEVEL": ("logging", "level", str),
     "SPOTUI_LOG_MAX_BYTES": ("logging", "max_bytes", int),
     "SPOTUI_LOG_BACKUP_COUNT": ("logging", "backup_count", int),
+    "SPOTUI_CANCEL_GRACE_SECONDS": ("queue", "cancel_grace_seconds", float),
+    "SPOTUI_QUEUE_SHUTDOWN_GRACE_SECONDS": ("queue", "shutdown_grace_seconds", float),
+    "SPOTUI_JOB_TIMEOUT_SECONDS": ("queue", "job_timeout_seconds", float),
 }
 
 

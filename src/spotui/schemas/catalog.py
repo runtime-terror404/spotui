@@ -83,6 +83,7 @@ def search_response(
                         url=item.url,
                         image=item.image,
                         kind=item.kind,
+                        in_library=item.in_library,
                     )
                     for item in section.items
                 ],
@@ -104,6 +105,7 @@ def entity_detail_response(detail: EntityDetail) -> EntityDetailResult:
                 artist=track.artist,
                 url=track.url,
                 image=track.image,
+                in_library=track.in_library,
             )
             for track in detail.tracks
         ],

@@ -11,6 +11,7 @@ import time
 from sqlalchemy import (
     CheckConstraint,
     Float,
+    ForeignKey,
     Index,
     Integer,
     MetaData,
@@ -20,7 +21,11 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
-from spotui.domain.jobs import JobState, active_states_sql
+from spotui.domain.jobs import (
+    TERMINAL_JOB_STATES,
+    JobState,
+    active_states_sql,
+)
 
 NAMING_CONVENTION = {
     "ix": "ix_%(column_0_label)s",
@@ -40,6 +45,7 @@ def _utc_epoch() -> int:
 
 
 _STATE_VALUES_SQL = ", ".join(f"'{state.value}'" for state in JobState)
+_TERMINAL_VALUES_SQL = ", ".join(f"'{state.value}'" for state in TERMINAL_JOB_STATES)
 
 
 class DownloadJob(Base):
@@ -92,4 +98,43 @@ class DownloadJob(Base):
             sqlite_where=text(active_states_sql()),
         ),
         Index("ix_download_jobs_state_created_at", "state", "created_at"),
+    )
+
+
+class JobAttempt(Base):
+    """One subprocess attempt for a download job."""
+
+    __tablename__ = "job_attempts"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    job_id: Mapped[str] = mapped_column(
+        String(32),
+        ForeignKey("download_jobs.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    attempt_number: Mapped[int] = mapped_column(Integer, nullable=False)
+    started_at: Mapped[int] = mapped_column(Integer, nullable=False)
+    finished_at: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    outcome: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    exit_code: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    error_summary: Mapped[str | None] = mapped_column(Text, nullable=True)
+    output_path: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+    __table_args__ = (
+        CheckConstraint("attempt_number > 0", name="attempt_number_positive"),
+        CheckConstraint(
+            f"outcome IS NULL OR outcome IN ({_TERMINAL_VALUES_SQL})",
+            name="outcome",
+        ),
+        Index(
+            "ux_job_attempts_job_attempt",
+            "job_id",
+            "attempt_number",
+            unique=True,
+        ),
+        Index(
+            "ix_job_attempts_job_id_started_at",
+            "job_id",
+            "started_at",
+        ),
     )

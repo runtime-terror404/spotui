@@ -40,6 +40,25 @@ const detailData = {
   albums: [],
 };
 
+const emptyQueue = {
+  jobs: [],
+  counts: {
+    queued: 0,
+    active: 0,
+    completed: 0,
+    failed: 0,
+    cancelled: 0,
+    interrupted: 0,
+  },
+};
+
+function jsonResponse(body: unknown, status = 200): Response {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { "content-type": "application/json" },
+  });
+}
+
 function renderApp() {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false } },
@@ -61,16 +80,13 @@ describe("App search and details flow", () => {
     const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
       const url = String(input);
       if (url.startsWith("/api/v1/search")) {
-        return new Response(JSON.stringify(searchData), {
-          status: 200,
-          headers: { "content-type": "application/json" },
-        });
+        return jsonResponse(searchData);
       }
       if (url.startsWith("/api/v1/entities/detail")) {
-        return new Response(JSON.stringify(detailData), {
-          status: 200,
-          headers: { "content-type": "application/json" },
-        });
+        return jsonResponse(detailData);
+      }
+      if (url === "/api/v1/queue") {
+        return jsonResponse(emptyQueue);
       }
       return new Response("not found", { status: 404 });
     });
@@ -102,26 +118,33 @@ describe("App search and details flow", () => {
     expect(
       await screen.findByRole("button", { name: "Open Artist Arijit Singh" }),
     ).toBeInTheDocument();
-    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(fetchMock).toHaveBeenCalled();
   });
 
   it("shows a persistent search error with a retry action", async () => {
-    const fetchMock = vi.fn().mockResolvedValue(
-      new Response(
-        JSON.stringify({
-          type: "urn:spotui:error:amazon_unavailable",
-          title: "Amazon Music unavailable",
-          status: 503,
-          detail: "The browser runtime is unavailable.",
-          code: "amazon_unavailable",
-          request_id: "req-503",
-        }),
-        {
-          status: 503,
-          headers: { "content-type": "application/problem+json" },
-        },
-      ),
-    );
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url === "/api/v1/queue") {
+        return jsonResponse(emptyQueue);
+      }
+      if (url.startsWith("/api/v1/search")) {
+        return new Response(
+          JSON.stringify({
+            type: "urn:spotui:error:amazon_unavailable",
+            title: "Amazon Music unavailable",
+            status: 503,
+            detail: "The browser runtime is unavailable.",
+            code: "amazon_unavailable",
+            request_id: "req-503",
+          }),
+          {
+            status: 503,
+            headers: { "content-type": "application/problem+json" },
+          },
+        );
+      }
+      return new Response("not found", { status: 404 });
+    });
     vi.stubGlobal("fetch", fetchMock);
     const user = userEvent.setup();
 

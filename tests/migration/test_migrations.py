@@ -8,7 +8,7 @@ from pathlib import Path
 import pytest
 from alembic.autogenerate import compare_metadata
 from alembic.migration import MigrationContext
-from sqlalchemy import create_engine, inspect
+from sqlalchemy import create_engine, inspect, text
 
 from spotui.persistence.migrate import (
     SchemaNotCurrentError,
@@ -27,16 +27,18 @@ def test_database_must_be_migrated_before_use(database_url: str) -> None:
 
 
 def test_upgrade_from_empty_database(database_url: str) -> None:
-    assert head_revision() == "0001_initial"
+    head = head_revision()
     assert current_revision(database_url) is None
 
     upgrade_database(database_url)
 
-    assert current_revision(database_url) == "0001_initial"
+    assert current_revision(database_url) == head
     check_database_current(database_url)
     engine = create_engine(database_url)
     try:
-        assert "download_jobs" in inspect(engine).get_table_names()
+        tables = inspect(engine).get_table_names()
+        assert "download_jobs" in tables
+        assert "job_attempts" in tables
     finally:
         engine.dispose()
 
@@ -49,12 +51,14 @@ def test_downgrade_and_reupgrade(database_url: str) -> None:
     assert current_revision(database_url) is None
     engine = create_engine(database_url)
     try:
-        assert "download_jobs" not in inspect(engine).get_table_names()
+        tables = inspect(engine).get_table_names()
+        assert "download_jobs" not in tables
+        assert "job_attempts" not in tables
     finally:
         engine.dispose()
 
     upgrade_database(database_url)
-    assert current_revision(database_url) == "0001_initial"
+    assert current_revision(database_url) == head_revision()
 
 
 def test_models_match_latest_migration(migrated_database_url: str) -> None:
@@ -85,3 +89,40 @@ def test_alembic_ini_uses_xdg_database(env) -> None:
     assert result.returncode == 0, result.stderr
     assert env.paths.database_file.exists()
     assert current_revision(f"sqlite:///{env.paths.database_file}") == head_revision()
+
+
+def test_upgrade_from_0001_preserves_existing_jobs(database_url: str) -> None:
+    upgrade_database(database_url, "0001_initial")
+    engine = create_engine(database_url)
+    try:
+        with engine.begin() as connection:
+            connection.execute(
+                text(
+                    """
+                    INSERT INTO download_jobs (
+                        id, track_url, track_key, title, artist, state,
+                        status_message, attempt_count, created_at, updated_at
+                    ) VALUES (
+                        'legacyjob', 'https://music.amazon.com/tracks/B002TRACK1',
+                        'amazon:B002TRACK1', 'Song', 'Artist', 'queued',
+                        'queued', 0, 1, 1
+                    )
+                    """
+                )
+            )
+    finally:
+        engine.dispose()
+
+    upgrade_database(database_url)
+
+    assert current_revision(database_url) == head_revision()
+    engine = create_engine(database_url)
+    try:
+        with engine.connect() as connection:
+            title = connection.execute(
+                text("SELECT title FROM download_jobs WHERE id = 'legacyjob'")
+            ).scalar_one()
+        assert title == "Song"
+        assert "job_attempts" in inspect(engine).get_table_names()
+    finally:
+        engine.dispose()

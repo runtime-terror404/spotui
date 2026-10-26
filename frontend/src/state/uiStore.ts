@@ -1,6 +1,6 @@
 import { create } from "zustand";
 
-export type AppView = "search" | "detail";
+export type AppView = "search" | "detail" | "queue";
 
 interface UIState {
   view: AppView;
@@ -13,6 +13,8 @@ interface UIState {
   openDetail: (url: string) => void;
   setSearchScrollY: (offset: number) => void;
   backToSearch: () => void;
+  openSearch: () => void;
+  openQueue: () => void;
   reset: () => void;
 }
 
@@ -43,5 +45,7 @@ export const useUIStore = create<UIState>((set) => ({
   openDetail: (detailUrl) => set({ view: "detail", detailUrl }),
   setSearchScrollY: (searchScrollY) => set({ searchScrollY }),
   backToSearch: () => set({ view: "search", detailUrl: null }),
+  openSearch: () => set({ view: "search", detailUrl: null }),
+  openQueue: () => set({ view: "queue" }),
   reset: () => set(initialState),
 }));

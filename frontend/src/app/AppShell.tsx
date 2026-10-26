@@ -1,6 +1,10 @@
+import { MobileNav } from "../components/layout/MobileNav";
 import { NavRail } from "../components/layout/NavRail";
 import { SearchHeader } from "../components/layout/SearchHeader";
+import { SnackbarRegion } from "../components/ui/SnackbarRegion";
 import { EntityDetailView } from "../features/entity-details/EntityDetailView";
+import { QueuePage } from "../features/queue/QueuePage";
+import { QueuePanel } from "../features/queue/QueuePanel";
 import { SearchView } from "../features/search/SearchView";
 import { useUIStore } from "../state/uiStore";
 
@@ -18,14 +22,17 @@ export function AppShell() {
         <div className="workspace">
           <SearchHeader />
           <main id="main-content" className="workspace__main" tabIndex={-1}>
+            {view === "queue" ? <QueuePage /> : null}
             {view === "detail" && detailUrl ? (
               <EntityDetailView url={detailUrl} />
-            ) : (
-              <SearchView />
-            )}
+            ) : null}
+            {view === "search" ? <SearchView /> : null}
           </main>
         </div>
+        <QueuePanel />
       </div>
+      <MobileNav />
+      <SnackbarRegion />
     </>
   );
 }

@@ -9,7 +9,7 @@ export function App() {
   const searchScrollY = useUIStore((state) => state.searchScrollY);
 
   useEffect(() => {
-    if (view === "detail") {
+    if (view === "detail" || view === "queue") {
       window.scrollTo({ top: 0, behavior: "auto" });
       return;
     }

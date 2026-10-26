@@ -167,22 +167,18 @@ def _cmd_serve(args: argparse.Namespace) -> int:
             lock.update_metadata({"urls": [listener.url for listener in listeners]})
             for listener in listeners:
                 logger.info("listening on %s (%s)", listener.url, listener.kind)
-            services = build_application_services(paths)
             runtime = ApplicationRuntime(
                 config=config,
                 paths=paths,
                 listeners=listeners,
-                services=services,
+                services_factory=build_application_services,
             )
-            try:
-                app = create_app(runtime)
-                server = run_server(app, sockets, config)
-                if not server.started:
-                    logger.error("server failed to start")
-                    return 1
-                return 0
-            finally:
-                services.close()
+            app = create_app(runtime)
+            server = run_server(app, sockets, config)
+            if not server.started:
+                logger.error("server failed to start")
+                return 1
+            return 0
         finally:
             close_listeners(sockets)
     finally:

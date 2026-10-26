@@ -77,6 +77,11 @@ class Clock:
         return self.now
 
 
+class EverythingInLibrary:
+    def contains(self, track_url: str, title: str | None = None, artist: str | None = None) -> bool:
+        return True
+
+
 def test_search_normalizes_caches_and_expires() -> None:
     provider = FakeCatalog()
     clock = Clock()
@@ -115,6 +120,23 @@ def test_clear_cache_forces_provider_call() -> None:
     service.search("query")
 
     assert len(provider.search_calls) == 2
+
+
+def test_search_results_are_annotated_with_library_state() -> None:
+    service = SearchService(FakeCatalog(), library=EverythingInLibrary())
+
+    sections = service.search("query")
+
+    assert sections[0].items[0].in_library is True
+    assert sections[0].items[0].kind is CatalogKind.TRACK
+
+
+def test_detail_tracks_are_annotated_with_library_state() -> None:
+    service = EntityDetailsService(FakeCatalog(), library=EverythingInLibrary())
+
+    detail = service.detail("https://music.amazon.in/albums/B001")
+
+    assert detail.tracks[0].in_library is True
 
 
 def test_entity_detail_validates_and_dispatches() -> None:

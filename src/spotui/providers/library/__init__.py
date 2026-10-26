@@ -1,0 +1,1 @@
+"""Library index adapters."""

@@ -11,11 +11,12 @@ reference and is never imported by the new package.
 
 ## Current status
 
-**Phases 1–3: foundation, API base, search, and entity details.** The package,
-configuration, logging, process lock, SQLite/Alembic setup, FastAPI lifecycle,
-dual-listener foundation, versioned API, RFC 9457 error contract, Amazon
-browser/resolver adapters, and the React search/detail interface are in place.
-Download queueing, imports, Now Playing, settings, and pairing remain for later
+**Phases 1–4: foundation, search/details, and the download queue.** The
+package, configuration, logging, process lock, SQLite/Alembic setup, FastAPI
+lifecycle, dual-listener foundation, versioned API, RFC 9457 error contract,
+Amazon adapters, React search/detail views, persisted download queue, managed
+worker, cancellation/retry/recovery, and queue UI are in place. Spotify import,
+Now Playing, full library indexing, settings, pairing, and SSE remain for later
 phases. The baseline audit and verification evidence are recorded in
 [`docs/baseline-audit.md`](docs/baseline-audit.md).
 
@@ -25,7 +26,8 @@ phases. The baseline audit and verification evidence are recorded in
 - [`uv`](https://docs.astral.sh/uv/)
 - Playwright Chromium for SpotUI's Amazon adapter (`spotui deps check`)
 - For album/editorial-playlist details and downloads, the managed `lucidadl`
-  environment plus its Cloudflare setup (`lucida setup`)
+  environment plus its Cloudflare setup (`lucida setup`). Run
+  `spotui deps install` explicitly; startup never installs anything.
 
 SpotUI itself runs from a uv-managed environment. It never modifies system
 Python. `lucidadl` is managed in a separate environment under the SpotUI data
@@ -64,12 +66,20 @@ uv run ruff check .
 API routes:
 
 ```text
-GET /api/v1/health
-GET /api/v1/search?q=...
-GET /api/v1/entities/detail?url=...
+GET  /api/v1/health
+GET  /api/v1/search?q=...
+GET  /api/v1/entities/detail?url=...
+GET  /api/v1/queue
+GET  /api/v1/queue/jobs/{id}
+POST /api/v1/queue/jobs
+POST /api/v1/queue/batch
+POST /api/v1/queue/jobs/{id}/cancel
+POST /api/v1/queue/jobs/{id}/retry
 ```
 
 Interactive OpenAPI documentation is available at `/docs` in development.
+Queue updates currently use short-interval polling; SSE integration is planned
+for a later phase.
 
 ## Configuration
 
@@ -88,11 +98,18 @@ shutdown_grace_seconds = 5.0
 level = "INFO"
 max_bytes = 5242880
 backup_count = 5
+
+[queue]
+cancel_grace_seconds = 5.0
+shutdown_grace_seconds = 5.0
+job_timeout_seconds = 900.0
 ```
 
 Supported environment overrides are `SPOTUI_PORT`, `SPOTUI_TRUSTED_SUBNET`,
 `SPOTUI_SHUTDOWN_GRACE_SECONDS`, `SPOTUI_LOG_LEVEL`, `SPOTUI_LOG_MAX_BYTES`,
-`SPOTUI_LOG_BACKUP_COUNT`, and `SPOTUI_CONFIG` (config file path).
+`SPOTUI_LOG_BACKUP_COUNT`, `SPOTUI_CANCEL_GRACE_SECONDS`,
+`SPOTUI_QUEUE_SHUTDOWN_GRACE_SECONDS`, `SPOTUI_JOB_TIMEOUT_SECONDS`, and
+`SPOTUI_CONFIG` (config file path).
 
 ## Data locations
 
@@ -122,7 +139,13 @@ configured in `lucidadl`; SpotUI does not move or modify existing media.
   state and Zustand for client-only view state. The production build writes to
   `src/spotui/web/dist/` and is bundled into the wheel/sdist.
 - SQLAlchemy/Alembic owns persistence; Pydantic schemas are separate.
-- One in-process download worker will own the only downloader subprocess.
-- REST and SQLite are authoritative; SSE will publish live updates later.
+- One in-process download worker owns exactly one managed `lucidadl` process at
+  a time. Jobs and attempts persist in SQLite; active jobs interrupted by a
+  restart become `interrupted` and require explicit Retry. Cancellation signals
+  only the owned process group and never deletes partial output.
+- The compatibility library index reads lucidadl's completed `state.json` for
+  in-library badges and batch skipping until the durable library index phase.
+- REST and SQLite are authoritative; the queue UI currently polls, with SSE
+  planned for a later phase.
 
 See [`refactor.md`](refactor.md) for the full phase plan and acceptance gates.

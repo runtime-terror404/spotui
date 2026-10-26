@@ -25,3 +25,23 @@ class CatalogResponseError(CatalogError):
 
 class InvalidSearchQueryError(ValueError):
     """The search query is empty or too long."""
+
+
+class JobNotFoundError(LookupError):
+    """The requested download job does not exist."""
+
+
+class JobTransitionError(RuntimeError):
+    """The requested job action is not valid from its current state."""
+
+
+class DuplicateActiveJobError(RuntimeError):
+    """Another active job already reserves this track."""
+
+
+class DownloaderUnavailableError(RuntimeError):
+    """The managed downloader executable or environment is unavailable."""
+
+
+class QueueUnavailableError(RuntimeError):
+    """The download queue service is not configured."""

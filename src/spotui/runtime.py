@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
@@ -13,6 +14,8 @@ from spotui.server import Listener
 if TYPE_CHECKING:
     from spotui.services.container import ApplicationServices
 
+ServicesFactory = Callable[[AppConfig, Paths, Database], "ApplicationServices"]
+
 
 @dataclass(slots=True)
 class ApplicationRuntime:
@@ -21,5 +24,6 @@ class ApplicationRuntime:
     listeners: tuple[Listener, ...] = ()
     database: Database | None = None
     services: ApplicationServices | None = None
+    services_factory: ServicesFactory | None = None
     started_at: float = 0.0
     stopping: bool = False

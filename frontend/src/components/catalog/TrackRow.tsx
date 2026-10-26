@@ -1,11 +1,24 @@
 import type { TrackResult } from "../../api/types";
+import { DownloadIcon } from "../icons";
 import { Artwork } from "../ui/Artwork";
 
 interface TrackRowProps {
   track: TrackResult;
+  onDownload?: (track: TrackResult) => void;
+  downloadBusy?: boolean;
+  downloadDisabled?: boolean;
 }
 
-export function TrackRow({ track }: TrackRowProps) {
+export function TrackRow({
+  track,
+  onDownload,
+  downloadBusy = false,
+  downloadDisabled = false,
+}: TrackRowProps) {
+  const downloadLabel = track.in_library
+    ? `Download ${track.title} again`
+    : `Download ${track.title}`;
+
   return (
     <div className="track-row">
       <Artwork
@@ -24,8 +37,27 @@ export function TrackRow({ track }: TrackRowProps) {
           </span>
         ) : null}
       </div>
-      {track.in_library ? (
-        <span className="library-badge">In library</span>
+      <div className="track-row__actions">
+        {track.in_library ? (
+          <span className="library-badge">In library</span>
+        ) : null}
+        {onDownload ? (
+          <button
+            type="button"
+            className="icon-button"
+            aria-label={downloadLabel}
+            title={downloadLabel}
+            disabled={downloadDisabled}
+            onClick={() => onDownload(track)}
+          >
+            <DownloadIcon />
+          </button>
+        ) : null}
+      </div>
+      {downloadBusy ? (
+        <span className="visually-hidden" role="status">
+          Adding to queue…
+        </span>
       ) : null}
     </div>
   );

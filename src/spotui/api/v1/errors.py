@@ -18,7 +18,12 @@ from spotui.domain.errors import (
     CatalogResponseError,
     CatalogTimeoutError,
     CatalogUnavailableError,
+    DownloaderUnavailableError,
+    DuplicateActiveJobError,
     InvalidSearchQueryError,
+    JobNotFoundError,
+    JobTransitionError,
+    QueueUnavailableError,
 )
 from spotui.logging_setup import log_context
 from spotui.schemas.errors import ErrorCode, FieldIssue, ProblemDetails
@@ -248,6 +253,83 @@ async def catalog_error_handler(request: Request, exc: CatalogError) -> JSONResp
     )
 
 
+def _queue_failure(
+    request: Request,
+    exc: Exception,
+    *,
+    status_code: int,
+    code: ErrorCode,
+    title: str,
+) -> JSONResponse:
+    with log_context(request_id=get_request_id(request)):
+        logger.warning("%s: %s", title, exc)
+    return problem_response(
+        request,
+        status_code=status_code,
+        code=code,
+        title=title,
+        detail=str(exc) or title,
+    )
+
+
+async def job_not_found_handler(request: Request, exc: JobNotFoundError) -> JSONResponse:
+    return _queue_failure(
+        request,
+        exc,
+        status_code=404,
+        code=ErrorCode.JOB_NOT_FOUND,
+        title="Download job not found",
+    )
+
+
+async def job_transition_handler(
+    request: Request, exc: JobTransitionError
+) -> JSONResponse:
+    return _queue_failure(
+        request,
+        exc,
+        status_code=409,
+        code=ErrorCode.INVALID_TRANSITION,
+        title="Invalid queue action",
+    )
+
+
+async def duplicate_active_job_handler(
+    request: Request, exc: DuplicateActiveJobError
+) -> JSONResponse:
+    return _queue_failure(
+        request,
+        exc,
+        status_code=409,
+        code=ErrorCode.DUPLICATE_ACTIVE_JOB,
+        title="Track already queued",
+    )
+
+
+async def downloader_unavailable_handler(
+    request: Request, exc: DownloaderUnavailableError
+) -> JSONResponse:
+    return _queue_failure(
+        request,
+        exc,
+        status_code=503,
+        code=ErrorCode.DOWNLOADER_UNAVAILABLE,
+        title="Downloader unavailable",
+    )
+
+
+async def queue_unavailable_handler(
+    request: Request, exc: QueueUnavailableError
+) -> JSONResponse:
+    return _queue_failure(
+        request,
+        exc,
+        status_code=503,
+        code=ErrorCode.DOWNLOADER_UNAVAILABLE,
+        title="Download queue unavailable",
+    )
+
+
 async def unhandled_exception_handler(request: Request, exc: Exception) -> JSONResponse:
     request_id = get_request_id(request)
     with log_context(request_id=request_id):
@@ -277,4 +359,9 @@ def install_error_handlers(app: FastAPI) -> None:
     app.add_exception_handler(CatalogTimeoutError, catalog_timeout_handler)
     app.add_exception_handler(CatalogResponseError, catalog_response_handler)
     app.add_exception_handler(CatalogError, catalog_error_handler)
+    app.add_exception_handler(JobNotFoundError, job_not_found_handler)
+    app.add_exception_handler(JobTransitionError, job_transition_handler)
+    app.add_exception_handler(DuplicateActiveJobError, duplicate_active_job_handler)
+    app.add_exception_handler(DownloaderUnavailableError, downloader_unavailable_handler)
+    app.add_exception_handler(QueueUnavailableError, queue_unavailable_handler)
     app.add_exception_handler(Exception, unhandled_exception_handler)

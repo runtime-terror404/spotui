@@ -35,6 +35,7 @@ class SearchItem:
     url: str
     image: str | None
     kind: CatalogKind
+    in_library: bool | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -50,6 +51,7 @@ class TrackReference:
     artist: str
     url: str
     image: str | None
+    in_library: bool | None = None
 
 
 @dataclass(frozen=True, slots=True)

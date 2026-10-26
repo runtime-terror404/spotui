@@ -79,6 +79,55 @@ DEFAULT_DETAIL = EntityDetail(
 
 
 @dataclass
+class FakeWorker:
+    started: int = 0
+    stopped: int = 0
+    wakes: int = 0
+    cancels: list[str] = field(default_factory=list)
+    active_job_id: str | None = None
+
+    def start(self) -> None:
+        self.started += 1
+
+    def stop(self) -> None:
+        self.stopped += 1
+
+    def wake(self) -> None:
+        self.wakes += 1
+
+    def cancel_active(self, job_id: str) -> None:
+        self.cancels.append(job_id)
+
+
+@dataclass
+class FakeDownloader:
+    available_value: bool = True
+    cancel_calls: list[float] = field(default_factory=list)
+
+    def available(self) -> bool:
+        return self.available_value
+
+    def run(self, url, on_phase):  # pragma: no cover - queue API tests do not run jobs
+        raise NotImplementedError
+
+    def cancel_active(self, grace_seconds: float) -> None:
+        self.cancel_calls.append(grace_seconds)
+
+
+@dataclass
+class FakeLibrary:
+    in_library: bool = False
+
+    def contains(
+        self,
+        track_url: str,
+        title: str | None = None,
+        artist: str | None = None,
+    ) -> bool:
+        return self.in_library
+
+
+@dataclass
 class FakeCatalog:
     search_sections: tuple[SearchSection, ...] = DEFAULT_SECTIONS
     detail_result: EntityDetail = DEFAULT_DETAIL
