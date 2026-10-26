@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import json
 import os
 import socket
+import sqlite3
 from pathlib import Path
 
 import pytest
@@ -10,7 +12,11 @@ from spotui import __version__
 from spotui.cli import main
 from spotui.deps import CheckStatus, DependencyCheck, DependencyReport
 from spotui.lifecycle import ProcessLock, inspect_lock
-from spotui.persistence.migrate import current_revision, head_revision
+from spotui.persistence.migrate import (
+    current_revision,
+    head_revision,
+    upgrade_database,
+)
 from spotui.server import Listener
 from tests.helpers import write_config
 
@@ -111,6 +117,8 @@ def test_status_reports_effective_state(env, capsys) -> None:
     assert f"SpotUI {__version__}" in output
     assert f"http://127.0.0.1:{port}" in output
     assert "LAN: disabled" in output
+    assert f"Launcher: {env.paths.launcher_file} (not installed)" in output
+    assert f"Systemd unit: {env.paths.systemd_unit_file} (not installed)" in output
     assert "Server: not running" in output
     assert "Health: unreachable" in output
 
@@ -211,3 +219,172 @@ def test_deps_upgrade_dispatches(env, capsys, monkeypatch) -> None:
 
     output = capsys.readouterr().out
     assert "Upgrading" in output
+
+
+def test_db_upgrade_backs_up_existing_database(env, capsys) -> None:
+    env.paths.ensure_runtime_directories()
+    database_url = f"sqlite:///{env.paths.database_file}"
+    upgrade_database(database_url, "0005_paired_devices")
+
+    assert main(["db", "upgrade"]) == 0
+
+    output = capsys.readouterr().out
+    assert "Backup before migration:" in output
+    assert current_revision(database_url) == head_revision()
+    backups = list(env.paths.backup_dir.glob("spotui-*.sqlite3"))
+    assert len(backups) == 1
+
+
+def test_db_backup_command(env, capsys, migrated_database_url: str) -> None:
+    target = env.root / "manual-backup.sqlite3"
+
+    assert main(["db", "backup", "--output", str(target)]) == 0
+
+    assert target.is_file()
+    assert f"Backup: {target}" in capsys.readouterr().out
+    with sqlite3.connect(target) as connection:
+        assert connection.execute("PRAGMA integrity_check").fetchone() == ("ok",)
+
+
+def _write_legacy_queue(env) -> Path:
+    legacy_path = env.paths.legacy_queue_file
+    legacy_path.parent.mkdir(parents=True, exist_ok=True)
+    jobs = [
+        {
+            "id": "legacy01",
+            "title": "Queued song",
+            "artist": "Artist",
+            "url": "https://music.amazon.com/tracks/B000000001",
+            "status": "queued",
+            "message": "queued",
+            "file": "",
+            "added": 1_700_000_000,
+            "updated": 1_700_000_000,
+        },
+        {
+            "id": "legacy02",
+            "title": "Running song",
+            "artist": "Artist",
+            "url": "https://music.amazon.com/tracks/B000000002",
+            "status": "downloading",
+            "message": "downloading…",
+            "file": "",
+            "added": 1_700_000_000,
+            "updated": 1_700_000_100,
+        },
+    ]
+    legacy_path.write_text(json.dumps({"jobs": jobs}), encoding="utf-8")
+    return legacy_path
+
+
+def _legacy_job_states(env) -> list[tuple[str, str]]:
+    with sqlite3.connect(env.paths.database_file) as connection:
+        return connection.execute(
+            "SELECT title, state FROM download_jobs ORDER BY title"
+        ).fetchall()
+
+
+def test_migrate_legacy_dry_run_and_confirmation(
+    env, capsys, monkeypatch, migrated_database_url: str
+) -> None:
+    legacy_path = _write_legacy_queue(env)
+    original = legacy_path.read_bytes()
+
+    assert main(["migrate-legacy", "--dry-run"]) == 0
+
+    output = capsys.readouterr().out
+    assert "Dry run" in output
+    assert "imported: 2" in output
+    assert _legacy_job_states(env) == []
+
+    assert main(["migrate-legacy"]) == 1
+
+    assert "refusing to write without --yes" in capsys.readouterr().err
+    assert _legacy_job_states(env) == []
+
+    monkeypatch.setattr("sys.stdin.isatty", lambda: True)
+    monkeypatch.setattr("builtins.input", lambda _prompt: "nope")
+
+    assert main(["migrate-legacy"]) == 1
+
+    assert "migration cancelled" in capsys.readouterr().out
+    assert _legacy_job_states(env) == []
+    assert legacy_path.read_bytes() == original
+
+
+def test_migrate_legacy_is_repeat_safe(env, capsys, migrated_database_url: str) -> None:
+    legacy_path = _write_legacy_queue(env)
+    original = legacy_path.read_bytes()
+
+    assert main(["migrate-legacy", "--yes"]) == 0
+
+    first_output = capsys.readouterr().out
+    assert "imported: 2" in first_output
+    assert _legacy_job_states(env) == [
+        ("Queued song", "queued"),
+        ("Running song", "interrupted"),
+    ]
+
+    assert main(["migrate-legacy", "--yes"]) == 0
+
+    second_output = capsys.readouterr().out
+    assert "imported: 0" in second_output
+    assert "skipped: 2" in second_output
+    assert legacy_path.read_bytes() == original
+    assert _legacy_job_states(env) == [
+        ("Queued song", "queued"),
+        ("Running song", "interrupted"),
+    ]
+
+
+def test_migrate_legacy_requires_migrated_database(env, capsys) -> None:
+    _write_legacy_queue(env)
+
+    assert main(["migrate-legacy", "--dry-run"]) == 1
+
+    assert "spotui db upgrade" in capsys.readouterr().err
+
+
+def test_service_commands_dispatch(env, capsys, monkeypatch) -> None:
+    calls: list[str] = []
+    monkeypatch.setattr(
+        "spotui.cli.install_service",
+        lambda paths, executable=None, daemon_reload=True: (
+            calls.append(f"install:{executable}:{daemon_reload}")
+            or paths.systemd_unit_file
+        ),
+    )
+    monkeypatch.setattr("spotui.cli.enable_service", lambda: calls.append("enable"))
+    monkeypatch.setattr("spotui.cli.disable_service", lambda: calls.append("disable"))
+    monkeypatch.setattr(
+        "spotui.cli.uninstall_service",
+        lambda paths: calls.append("uninstall") or True,
+    )
+    monkeypatch.setattr("spotui.cli.service_status", lambda: "active")
+    executable = Path("/opt/SpotUI/bin/spotui")
+
+    assert (
+        main(
+            [
+                "service",
+                "install",
+                "--exec",
+                str(executable),
+                "--no-daemon-reload",
+            ]
+        )
+        == 0
+    )
+    assert main(["service", "enable"]) == 0
+    assert main(["service", "disable"]) == 0
+    assert main(["service", "uninstall"]) == 0
+    assert main(["service", "status"]) == 0
+
+    assert calls == [
+        f"install:{executable}:False",
+        "enable",
+        "disable",
+        "uninstall",
+    ]
+    output = capsys.readouterr().out
+    assert "spotui.service: active" in output

@@ -384,5 +384,61 @@ The packaged pairing/settings UI was checked at desktop and phone widths with
 no horizontal overflow. No external LAN interface was exposed; subnet selection
 and wildcard rejection remain covered by injected-interface and binding tests.
 
-The next feature phase is Phase 9: installer, legacy migration, release tooling,
-and final documentation.
+Phase 9 (installer, legacy migration, and release tooling) is complete for the
+application and automation layers:
+
+- Migration `0006` adds `legacy_queue_imports`, a unique per-source/per-legacy-id
+  ledger recording imported, skipped, ambiguous, and failed outcomes.
+  `spotui migrate-legacy` supports `--dry-run`, interactive confirmation, and
+  `--yes`. It imports queued, completed, failed, and cancelled jobs; maps
+  running/downloading to `interrupted`; reports unknown states and invalid URLs;
+  skips queued records that duplicate an active track; and never writes to the
+  legacy JSON file, lucidadl state, or media. Deterministic job IDs require no
+  sequence state, and reruns report prior outcomes without duplicating rows.
+- `spotui db upgrade` refuses while the server holds the OS process lock. Before
+  changing an existing schema it creates an online SQLite backup under
+  `~/.local/share/spotui/backups/`, sets mode `0600`, verifies
+  `PRAGMA integrity_check`, and retains five files by default. `spotui db backup`
+  additionally supports a one-off explicit file and configurable retention.
+- `scripts/install.sh` installs or updates a wheel in the uv-managed XDG
+  environment, verifies downloaded wheel checksums, refuses to update a running
+  server, applies migrations, registers/refreshes the launcher safely, and can
+  install a systemd user unit. It never modifies system Python or downloader
+  state. `scripts/uninstall.sh` removes only managed code/launcher/service by
+  default; data removal requires `--purge-data` plus explicit confirmation.
+- `spotui service install|enable|disable|uninstall|status` provides explicit
+  systemd user-service operations. Units use the resolved installed executable,
+  quote paths safely, and do not enable themselves implicitly.
+- Python versioning is single-sourced from `src/spotui/__init__.py` via
+  Hatchling; tests keep the frontend package/lock aligned. The lockfile records
+  the project version as dynamic.
+- `.github/workflows/ci.yml` covers Ubuntu 22.04 and a current Arch container,
+  backend/frontend tests, lint, lockfile, Alembic drift, artifact builds,
+  bundled-asset checks, a clean wheel install, server startup, and installer
+  smoke tests. `.github/workflows/release.yml` gates publishing on CI, verifies
+  tag/artifact names, generates `SHA256SUMS`, and creates the GitHub release.
+  These workflows are authored but have not run on GitHub from this local
+  checkout; no release was published.
+
+Final checks: 410 backend tests and 31 frontend tests pass; `ruff`, the
+TypeScript typecheck, `uv lock --check`, and the Vite production build are
+clean. `uv build` produced `spotui-0.1.0-py3-none-any.whl`
+(`e5b478ed81ea304d3fd048d74d63aeb53a4e1e6da3c3563573d0462057101ba3`) and
+`spotui-0.1.0.tar.gz`
+(`0bc2f2b084f461e46bc43f71721790ddd3ab2c2ccd614f0142e71b37333cc4f6`);
+both contain the generated frontend and the sdist contains both installer
+scripts. All 410 tests also pass from the wheel installed in a clean Python
+3.11 environment. That installed wheel migrated a fresh database, produced a
+verified backup, generated a valid systemd unit with pinned XDG roots, imported
+a sample legacy queue in dry-run and confirmed modes, reran without duplicates,
+left the source file hash unchanged, served the packaged UI and asset, and shut
+down cleanly. The real installer was run twice against the built wheel with a
+real uv environment: the second run was idempotent and preserved data; uninstall
+removed only code and the launcher.
+
+Not exercised here: an actual GitHub Actions run or tagged release publication,
+live release-asset download (the checksum path is shell-tested with fixtures),
+a physical phone on an external LAN, and a complete real playlist download
+through the pinned downloader. The next step is the first tagged release and
+those manual smoke checks; no release should be published until CI runs green
+on the tagged commit.

@@ -48,6 +48,7 @@ def isolated_xdg(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> XdgEnvironm
     for key, value in values.items():
         monkeypatch.setenv(key, value)
     for key in (
+        "XDG_BIN_HOME",
         "SPOTUI_CONFIG",
         "SPOTUI_PORT",
         "SPOTUI_TRUSTED_SUBNET",

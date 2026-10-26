@@ -11,6 +11,8 @@ import urllib.request
 from pathlib import Path
 from typing import Any
 
+from sqlalchemy.exc import SQLAlchemyError
+
 from spotui import __version__
 from spotui.app import create_app
 from spotui.config import (
@@ -36,7 +38,8 @@ from spotui.lifecycle import (
 )
 from spotui.logging_setup import setup_logging
 from spotui.paths import PathError, Paths
-from spotui.persistence.database import database_url_for_path
+from spotui.persistence.backup import BackupError, backup_database
+from spotui.persistence.database import Database, database_url_for_path
 from spotui.persistence.migrate import (
     SchemaNotCurrentError,
     check_database_current,
@@ -44,6 +47,7 @@ from spotui.persistence.migrate import (
     head_revision,
     upgrade_database,
 )
+from spotui.persistence.repositories.legacy import LegacyQueueRepository
 from spotui.runtime import ApplicationRuntime
 from spotui.server import (
     Listener,
@@ -53,7 +57,20 @@ from spotui.server import (
     listener_specs,
     run_server,
 )
+from spotui.service import (
+    ServiceError,
+    disable_service,
+    enable_service,
+    install_service,
+    service_status,
+    uninstall_service,
+)
 from spotui.services.factory import build_application_services
+from spotui.services.legacy_migration import (
+    LegacyMigrationError,
+    LegacyMigrationService,
+    render_report,
+)
 
 logger = logging.getLogger("spotui.cli")
 
@@ -209,6 +226,10 @@ def _cmd_status(args: argparse.Namespace) -> int:
     print(f"Data: {paths.data_dir}")
     print(f"Database: {paths.database_file}")
     print(f"Logs: {paths.log_file}")
+    launcher_missing = "" if paths.launcher_file.exists() else " (not installed)"
+    unit_missing = "" if paths.systemd_unit_file.exists() else " (not installed)"
+    print(f"Launcher: {paths.launcher_file}{launcher_missing}")
+    print(f"Systemd unit: {paths.systemd_unit_file}{unit_missing}")
     if config.server.trusted_subnet:
         lan_listener = next(
             (listener for listener in listeners if listener.kind == "lan"), None
@@ -242,13 +263,48 @@ def _cmd_status(args: argparse.Namespace) -> int:
     return 0
 
 
+def _server_is_running(paths: Paths) -> bool:
+    return inspect_lock(paths.lock_file).locked
+
+
+def _refuse_if_server_running(paths: Paths, action: str) -> bool:
+    if not _server_is_running(paths):
+        return False
+    print(
+        f"spotui: stop the running SpotUI server before {action}",
+        file=sys.stderr,
+    )
+    return True
+
+
+def _cmd_db_backup(args: argparse.Namespace) -> int:
+    paths = Paths.resolve(config_file=args.config)
+    _load_configuration(args, paths)
+    target = args.output.expanduser() if args.output is not None else None
+    backup = backup_database(
+        paths.database_file,
+        paths.backup_dir,
+        target=target,
+        keep=args.keep,
+    )
+    print(f"Backup: {backup}")
+    return 0
+
+
 def _cmd_db_upgrade(args: argparse.Namespace) -> int:
     paths = Paths.resolve(config_file=args.config)
     config = _load_configuration(args, paths)
     paths.ensure_runtime_directories()
     setup_logging(config.logging, paths)
+    if _refuse_if_server_running(paths, "applying database migrations"):
+        return 1
     database_url = database_url_for_path(paths.database_file)
     print(f"Database: {paths.database_file}")
+    if paths.database_file.is_file():
+        current = current_revision(database_url)
+        if current != head_revision():
+            backup = backup_database(paths.database_file, paths.backup_dir)
+            print(f"Backup before migration: {backup}")
     upgrade_database(database_url)
     check_database_current(database_url)
     print(f"Database is current at revision {current_revision(database_url)}")
@@ -271,6 +327,85 @@ def _cmd_db_current(args: argparse.Namespace) -> int:
         print(f"Revision: {current} (head)")
     else:
         print(f"Revision: {current} (head {head}; run 'spotui db upgrade')")
+    return 0
+
+
+def _cmd_migrate_legacy(args: argparse.Namespace) -> int:
+    paths = Paths.resolve(config_file=args.config)
+    _load_configuration(args, paths)
+    if _refuse_if_server_running(paths, "importing the legacy queue"):
+        return 1
+    database_url = database_url_for_path(paths.database_file)
+    check_database_current(database_url)
+    source = args.source or paths.legacy_queue_file
+    database = Database.from_url(database_url)
+    try:
+        service = LegacyMigrationService(
+            LegacyQueueRepository(database.session_factory)
+        )
+        if args.dry_run:
+            report = service.migrate(source, dry_run=True)
+            print(render_report(report))
+            _print_legacy_configuration_note()
+            return 0
+        if not args.yes:
+            if not sys.stdin.isatty():
+                print(
+                    "spotui: refusing to write without --yes in a non-interactive session",
+                    file=sys.stderr,
+                )
+                return 1
+            preview = service.migrate(source, dry_run=True)
+            print(render_report(preview))
+            _print_legacy_configuration_note()
+            print()
+            answer = input("Type 'import' to write these records: ").strip()
+            if answer != "import":
+                print("spotui: migration cancelled; no data was written")
+                return 1
+        report = service.migrate(source, dry_run=False)
+        print(render_report(report))
+        _print_legacy_configuration_note()
+    finally:
+        database.dispose()
+    return 1 if report.failed else 0
+
+
+def _print_legacy_configuration_note() -> None:
+    print(
+        "Legacy configuration: the v0 release had no settings file, so no "
+        "settings were imported. Re-enter server, library root, and downloader "
+        "settings in config.toml (see README)."
+    )
+
+
+def _cmd_service(args: argparse.Namespace) -> int:
+    paths = Paths.resolve(config_file=args.config)
+    if args.service_command == "install":
+        unit = install_service(
+            paths,
+            executable=args.executable,
+            daemon_reload=not args.no_daemon_reload,
+        )
+        print(f"Installed systemd user unit: {unit}")
+        print("Enable and start it with: spotui service enable")
+        return 0
+    if args.service_command == "enable":
+        enable_service()
+        print("Enabled and started spotui.service")
+        return 0
+    if args.service_command == "disable":
+        disable_service()
+        print("Disabled and stopped spotui.service")
+        return 0
+    if args.service_command == "uninstall":
+        existed = uninstall_service(paths)
+        if existed:
+            print(f"Removed systemd user unit: {paths.systemd_unit_file}")
+        else:
+            print(f"No systemd user unit at {paths.systemd_unit_file}")
+        return 0
+    print(f"spotui.service: {service_status()}")
     return 0
 
 
@@ -336,6 +471,84 @@ def build_parser() -> argparse.ArgumentParser:
     current = database_subparsers.add_parser("current", help="show the applied revision")
     _add_config_option(current)
     current.set_defaults(func=_cmd_db_current)
+    backup = database_subparsers.add_parser(
+        "backup",
+        help="create and verify a SQLite backup before maintenance",
+    )
+    _add_config_option(backup)
+    backup.add_argument(
+        "--output",
+        type=Path,
+        metavar="PATH",
+        help="explicit new backup file (must not already exist)",
+    )
+    backup.add_argument(
+        "--keep",
+        type=int,
+        default=5,
+        metavar="N",
+        help="managed backups to retain in the backup directory (default 5)",
+    )
+    backup.set_defaults(func=_cmd_db_backup)
+
+    legacy = subparsers.add_parser(
+        "migrate-legacy",
+        help="report or import the read-only legacy JSON queue",
+    )
+    _add_config_option(legacy)
+    legacy.add_argument(
+        "--source",
+        type=Path,
+        metavar="PATH",
+        help="legacy queue.json (default: the XDG SpotUI data directory)",
+    )
+    legacy.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="validate and report without writing any migration records",
+    )
+    legacy.add_argument(
+        "--yes",
+        action="store_true",
+        help="write the migration without an interactive confirmation",
+    )
+    legacy.set_defaults(func=_cmd_migrate_legacy)
+
+    service = subparsers.add_parser(
+        "service",
+        help="optional systemd user-service helpers",
+    )
+    service_subparsers = service.add_subparsers(
+        dest="service_command",
+        required=True,
+    )
+    service_install = service_subparsers.add_parser(
+        "install",
+        help="write the systemd user unit (does not enable it)",
+    )
+    _add_config_option(service_install)
+    service_install.add_argument(
+        "--exec",
+        dest="executable",
+        type=Path,
+        metavar="PATH",
+        help="installed spotui launcher (default: the managed SpotUI environment)",
+    )
+    service_install.add_argument(
+        "--no-daemon-reload",
+        action="store_true",
+        help="skip systemctl --user daemon-reload (for offline unit generation)",
+    )
+    service_install.set_defaults(func=_cmd_service)
+    for command, help_text in (
+        ("enable", "enable and start the systemd user service"),
+        ("disable", "disable and stop the systemd user service"),
+        ("uninstall", "stop/disable and remove the systemd user unit only"),
+        ("status", "show the systemd user-service state"),
+    ):
+        command_parser = service_subparsers.add_parser(command, help=help_text)
+        _add_config_option(command_parser)
+        command_parser.set_defaults(func=_cmd_service)
 
     deps = subparsers.add_parser("deps", help="managed downloader dependency commands")
     deps_subparsers = deps.add_subparsers(dest="deps_command", required=True)
@@ -359,10 +572,14 @@ def build_parser() -> argparse.ArgumentParser:
 _KNOWN_ERRORS = (
     ConfigError,
     PathError,
+    BackupError,
+    LegacyMigrationError,
+    ServiceError,
     ProcessLockError,
     PortUnavailableError,
     SchemaNotCurrentError,
     DependencyError,
+    SQLAlchemyError,
     OSError,
 )
 

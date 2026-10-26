@@ -1,0 +1,188 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  test-ubuntu:
+    name: Test on Ubuntu 22.04
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: "3.11"
+          enable-cache: true
+
+      - name: Install Python dependencies
+        run: uv sync --frozen --all-groups --python 3.11
+
+      - name: Install, test, typecheck, and build frontend
+        working-directory: frontend
+        run: |
+          npm ci
+          npm test
+          npm run typecheck
+          npm run build
+
+      - name: Backend tests
+        run: uv run pytest
+
+      - name: Lint and lockfile check
+        run: |
+          uv run ruff check .
+          uv lock --check
+
+      - name: Alembic schema checks
+        env:
+          XDG_CONFIG_HOME: ${{ runner.temp }}/xdg/config
+          XDG_DATA_HOME: ${{ runner.temp }}/xdg/data
+          XDG_STATE_HOME: ${{ runner.temp }}/xdg/state
+          XDG_CACHE_HOME: ${{ runner.temp }}/xdg/cache
+          XDG_RUNTIME_DIR: ${{ runner.temp }}/xdg/run
+        run: |
+          mkdir -p "$XDG_CONFIG_HOME" "$XDG_DATA_HOME" "$XDG_STATE_HOME" \
+            "$XDG_CACHE_HOME" "$XDG_RUNTIME_DIR"
+          chmod 700 "$XDG_RUNTIME_DIR"
+          uv run spotui db upgrade
+          uv run alembic -c alembic.ini check
+          uv run spotui db current
+
+  test-arch:
+    name: Backend on current Arch Linux
+    runs-on: ubuntu-22.04
+    container: archlinux:latest
+    steps:
+      - name: Install platform prerequisites
+        run: |
+          pacman -Syu --noconfirm git python uv bash
+      - uses: actions/checkout@v4
+      - name: Install Python dependencies
+        run: uv sync --frozen --all-groups
+      - name: Backend tests
+        run: uv run pytest
+      - name: Lint
+        run: uv run ruff check .
+
+  packaging:
+    name: Build and verify release artifacts
+    runs-on: ubuntu-22.04
+    needs: test-ubuntu
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: "3.11"
+          enable-cache: true
+
+      - name: Install Python dependencies
+        run: uv sync --frozen --all-groups --python 3.11
+
+      - name: Build frontend and Python distributions
+        run: |
+          npm --prefix frontend ci
+          npm --prefix frontend run build
+          uv build
+
+      - name: Verify bundled assets in wheel and sdist
+        run: |
+          uv run python - <<'PY'
+          from pathlib import Path
+          import tarfile
+          import zipfile
+
+          wheel = next(Path("dist").glob("*.whl"))
+          with zipfile.ZipFile(wheel) as archive:
+              names = archive.namelist()
+              assert "spotui/web/dist/index.html" in names
+              assert any(name.startswith("spotui/web/dist/assets/") for name in names)
+
+          sdist = next(Path("dist").glob("*.tar.gz"))
+          with tarfile.open(sdist) as archive:
+              names = archive.getnames()
+              assert any(name.endswith("src/spotui/web/dist/index.html") for name in names)
+              assert any(name.endswith("scripts/install.sh") for name in names)
+              assert any(name.endswith("scripts/uninstall.sh") for name in names)
+          print(f"verified {wheel.name} and {sdist.name}")
+          PY
+
+      - name: Install wheel in a clean environment and smoke-test startup
+        env:
+          XDG_CONFIG_HOME: ${{ runner.temp }}/clean/config
+          XDG_DATA_HOME: ${{ runner.temp }}/clean/data
+          XDG_STATE_HOME: ${{ runner.temp }}/clean/state
+          XDG_CACHE_HOME: ${{ runner.temp }}/clean/cache
+          XDG_RUNTIME_DIR: ${{ runner.temp }}/clean/run
+        run: |
+          set -euo pipefail
+          mkdir -p "$XDG_CONFIG_HOME" "$XDG_DATA_HOME" "$XDG_STATE_HOME" \
+            "$XDG_CACHE_HOME" "$XDG_RUNTIME_DIR"
+          chmod 700 "$XDG_RUNTIME_DIR"
+          uv venv --python 3.11 "$RUNNER_TEMP/spotui-clean"
+          uv pip install --python "$RUNNER_TEMP/spotui-clean/bin/python" dist/*.whl
+          "$RUNNER_TEMP/spotui-clean/bin/spotui" --version
+          "$RUNNER_TEMP/spotui-clean/bin/spotui" db upgrade
+          "$RUNNER_TEMP/spotui-clean/bin/spotui" db backup
+          "$RUNNER_TEMP/spotui-clean/bin/spotui" serve --port 18765 \
+            >"$RUNNER_TEMP/server.log" 2>&1 &
+          server_pid=$!
+          trap 'kill "$server_pid" 2>/dev/null || true' EXIT
+          for _ in $(seq 1 100); do
+            if curl -fsS http://127.0.0.1:18765/api/v1/health >/dev/null 2>&1; then
+              break
+            fi
+            sleep 0.2
+          done
+          curl -fsS http://127.0.0.1:18765/api/v1/health
+          curl -fsS http://127.0.0.1:18765/ | grep -q "SpotUI"
+          kill -TERM "$server_pid"
+          wait "$server_pid" || true
+          trap - EXIT
+          cat "$RUNNER_TEMP/server.log"
+
+      - name: Exercise installer and uninstaller with the built wheel
+        env:
+          HOME: ${{ runner.temp }}/installer-home
+          XDG_CONFIG_HOME: ${{ runner.temp }}/installer/config
+          XDG_DATA_HOME: ${{ runner.temp }}/installer/data
+          XDG_STATE_HOME: ${{ runner.temp }}/installer/state
+          XDG_CACHE_HOME: ${{ runner.temp }}/installer/cache
+          XDG_BIN_HOME: ${{ runner.temp }}/installer/bin
+        run: |
+          set -euo pipefail
+          mkdir -p "$HOME" "$XDG_DATA_HOME/spotui" "$XDG_STATE_HOME/spotui" \
+            "$XDG_CACHE_HOME/spotui" "$XDG_CONFIG_HOME/spotui" "$XDG_BIN_HOME"
+          echo "preserve" > "$XDG_DATA_HOME/spotui/preserved.txt"
+          scripts/install.sh --wheel "$PWD"/dist/*.whl --no-migrate
+          "$XDG_BIN_HOME/spotui" --version
+          scripts/uninstall.sh
+          test ! -e "$XDG_BIN_HOME/spotui"
+          test ! -d "$XDG_DATA_HOME/spotui/envs/spotui"
+          test "$(cat "$XDG_DATA_HOME/spotui/preserved.txt")" = "preserve"
+
+      - name: Upload Python distributions
+        uses: actions/upload-artifact@v4
+        with:
+          name: spotui-dist
+          path: dist/*
+          if-no-files-found: error

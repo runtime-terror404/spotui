@@ -9,12 +9,21 @@ def test_xdg_directories_are_respected(env) -> None:
     paths = env.paths
 
     assert paths.config_file == env.config_home / "spotui" / "config.toml"
+    assert paths.config_dir == env.config_home / "spotui"
     assert paths.data_dir == env.data_home / "spotui"
     assert paths.state_dir == env.state_home / "spotui"
     assert paths.cache_dir == env.cache_home / "spotui"
     assert paths.runtime_dir == env.runtime_home / "spotui"
     assert paths.database_file == paths.data_dir / "spotui.sqlite3"
+    assert paths.backup_dir == paths.data_dir / "backups"
+    assert paths.legacy_queue_file == paths.data_dir / "queue.json"
     assert paths.log_file == paths.state_dir / "logs" / "spotui.log"
+    assert paths.bin_dir == env.home / ".local" / "bin"
+    assert paths.launcher_file == paths.bin_dir / "spotui"
+    assert paths.systemd_unit_file == (
+        env.config_home / "systemd" / "user" / "spotui.service"
+    )
+    assert paths.spotui_env_dir == paths.data_dir / "envs" / "spotui"
     assert paths.lucidadl_env_dir == paths.data_dir / "envs" / "lucidadl"
     assert paths.lucidadl_executable == paths.lucidadl_env_dir / "bin" / "lucida"
     assert paths.lucidadl_python == paths.lucidadl_env_dir / "bin" / "python"

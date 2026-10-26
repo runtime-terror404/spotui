@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "spotui"
-version = "0.1.0"
+dynamic = ["version"]
 description = "Local Amazon Music search and download application"
 readme = "README.md"
 requires-python = ">=3.11"
@@ -27,8 +27,14 @@ dev = [
     "ruff>=0.6",
 ]
 
+[project.urls]
+Repository = "https://github.com/runtime-terror404/spotui"
+
 [project.scripts]
 spotui = "spotui.cli:main"
+
+[tool.hatch.version]
+path = "src/spotui/__init__.py"
 
 [tool.hatch.build]
 # Vite assets are generated and gitignored, but must ship in wheel and sdist.
@@ -41,6 +47,7 @@ packages = ["src/spotui"]
 include = [
     "alembic.ini",
     "docs",
+    "scripts",
     "src/spotui",
     "tests",
     "README.md",

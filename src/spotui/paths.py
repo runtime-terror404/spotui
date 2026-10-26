@@ -35,14 +35,20 @@ class Paths:
     """All application-owned paths for one user and data directory."""
 
     config_file: Path
+    config_dir: Path
     data_dir: Path
     state_dir: Path
     cache_dir: Path
     runtime_dir: Path
     database_file: Path
+    backup_dir: Path
+    legacy_queue_file: Path
     log_dir: Path
     log_file: Path
     lock_file: Path
+    bin_dir: Path
+    launcher_file: Path
+    systemd_unit_file: Path
     spotui_env_dir: Path
     lucidadl_env_dir: Path
     lucidadl_executable: Path
@@ -67,13 +73,15 @@ class Paths:
         data_home = _xdg_dir(env, "XDG_DATA_HOME", home / ".local" / "share")
         state_home = _xdg_dir(env, "XDG_STATE_HOME", home / ".local" / "state")
         cache_home = _xdg_dir(env, "XDG_CACHE_HOME", home / ".cache")
+        bin_home = _xdg_dir(env, "XDG_BIN_HOME", home / ".local" / "bin")
 
+        config_dir = config_home / APP_NAME
         if config_file is not None:
             resolved_config = config_file.expanduser()
         elif env.get("SPOTUI_CONFIG", "").strip():
             resolved_config = Path(env["SPOTUI_CONFIG"]).expanduser()
         else:
-            resolved_config = config_home / APP_NAME / "config.toml"
+            resolved_config = config_dir / "config.toml"
 
         data_dir = data_home / APP_NAME
         state_dir = state_home / APP_NAME
@@ -91,14 +99,20 @@ class Paths:
         lucidadl_env_dir = data_dir / "envs" / "lucidadl"
         return cls(
             config_file=resolved_config,
+            config_dir=config_dir,
             data_dir=data_dir,
             state_dir=state_dir,
             cache_dir=cache_dir,
             runtime_dir=runtime_dir,
             database_file=data_dir / "spotui.sqlite3",
+            backup_dir=data_dir / "backups",
+            legacy_queue_file=data_dir / "queue.json",
             log_dir=state_dir / "logs",
             log_file=state_dir / "logs" / "spotui.log",
             lock_file=lock_file,
+            bin_dir=bin_home,
+            launcher_file=bin_home / APP_NAME,
+            systemd_unit_file=config_home / "systemd" / "user" / f"{APP_NAME}.service",
             spotui_env_dir=data_dir / "envs" / "spotui",
             lucidadl_env_dir=lucidadl_env_dir,
             lucidadl_executable=lucidadl_env_dir / "bin" / "lucida",

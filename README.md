@@ -11,22 +11,22 @@ reference and is never imported by the new package.
 
 ## Current status
 
-**Phases 1–8: foundation, search/details, the download queue, Now Playing,
-the library index, progressive Spotify imports, and trusted LAN pairing.** The
-package, configuration, logging, process lock, SQLite/Alembic setup, FastAPI
-lifecycle, dual-listener foundation, versioned API, RFC 9457 error contract,
-Amazon adapters, React search/detail/import views, persisted download queue,
-managed worker, cancellation/retry/recovery, queue UI, optional MPRIS
-current-track shortcut, read-only multi-root library index, Spotify
-candidate-review workspace, and paired-device LAN security are in place.
-Remaining work includes full appearance preferences, full queue SSE, release
-tooling, and the installer. The baseline audit and verification evidence are
-recorded in [`docs/baseline-audit.md`](docs/baseline-audit.md).
+**Phases 1–9: the complete first-release feature set.** The package includes
+search and entity details, a durable download queue with cancellation, retry
+and recovery, Now Playing, a read-only multi-root library index, progressive
+Spotify imports with explicit matching, trusted LAN pairing and security, the
+installer/uninstaller, safe legacy queue migration, database backups, systemd
+user-service helpers, and CI/release packaging with bundled frontend assets.
+Remaining optional work is limited to appearance preferences, broader queue
+SSE, verified live downloader capture, and physical-LAN field testing. The
+baseline audit and verification evidence are recorded in
+[`docs/baseline-audit.md`](docs/baseline-audit.md).
 
 ## Requirements
 
-- Linux (Arch Linux or Ubuntu 22.04 LTS and newer)
-- [`uv`](https://docs.astral.sh/uv/)
+- 64-bit Linux: Ubuntu 22.04 LTS and newer, or rolling Arch Linux
+- [`uv`](https://docs.astral.sh/uv/) for the isolated runtime
+- `bash`, `curl`, and `sha256sum` for release installation
 - Playwright Chromium for SpotUI's Amazon adapter (`spotui deps check`)
 - For album/editorial-playlist details and downloads, the managed `lucidadl`
   environment plus its Cloudflare setup (`lucida setup`). Run
@@ -43,6 +43,59 @@ Python. `lucidadl` is managed in a separate environment under the SpotUI data
 directory; album/editorial-playlist resolution calls it through a packaged
 subprocess bridge. Node.js is needed only to build the frontend, not to run the
 installed application.
+
+## Installation
+
+Release installs use the isolated environment and register `~/.local/bin/spotui`.
+Download and verify the installer from the tagged release, then:
+
+```bash
+VERSION=0.1.0
+BASE="https://github.com/runtime-terror404/spotui/releases/download/v${VERSION}"
+curl -fLO "$BASE/install.sh"
+curl -fLO "$BASE/uninstall.sh"
+curl -fLO "$BASE/SHA256SUMS"
+sha256sum --check --ignore-missing SHA256SUMS
+chmod +x install.sh uninstall.sh
+./install.sh --version "$VERSION"
+```
+
+The installer verifies the wheel against the release checksum, applies database
+migrations after backing up an existing database, and is safe to re-run. It
+does not install the downloader or start the server. Then run explicitly:
+
+```bash
+spotui deps install
+spotui deps check
+spotui serve
+```
+
+Optional systemd user service:
+
+```bash
+spotui service install
+spotui service enable
+```
+
+Import the old JSON queue, if present, with a dry run first:
+
+```bash
+spotui migrate-legacy --dry-run
+spotui migrate-legacy --yes
+```
+
+Updates are manual: stop the service, rerun `install.sh` with the new
+`--version`, and use `spotui deps upgrade` only when release notes require it.
+Create a verified backup with `spotui db backup`; migrations also back up an
+existing database automatically. `scripts/uninstall.sh` removes installed code
+and the service while preserving configuration, database, logs, caches,
+downloader environment, library roots, and music. Add `--purge-data` to remove
+SpotUI-owned data explicitly.
+
+See [`docs/installation.md`](docs/installation.md) for platform packages,
+backup/restore and rollback boundaries, legacy migration rules, and full
+update/uninstall instructions. Release engineering is documented in
+[`docs/release-process.md`](docs/release-process.md).
 
 ## Development quick start
 
@@ -65,6 +118,8 @@ For frontend iteration, run the backend on port 8765 and `npm run dev` in
 ```bash
 uv run spotui status            # effective paths, URLs, lock and health state
 uv run spotui db current        # applied migration revision
+uv run spotui db backup         # verified backup before maintenance
+uv run spotui migrate-legacy --dry-run
 uv run spotui deps check        # SpotUI browser plus managed lucidadl status
 uv run spotui deps install      # explicit install/reconcile of pinned dependencies
 uv run pytest
@@ -170,14 +225,19 @@ Supported environment overrides are `SPOTUI_PORT`, `SPOTUI_TRUSTED_SUBNET`,
 |---|---|
 | Configuration | `~/.config/spotui/config.toml` |
 | Database | `~/.local/share/spotui/spotui.sqlite3` |
+| Database backups | `~/.local/share/spotui/backups/` |
 | Logs | `~/.local/state/spotui/logs/spotui.log` |
 | Cache | `~/.cache/spotui/` |
 | Lock file | `$XDG_RUNTIME_DIR/spotui/server-<data-dir-hash>.lock` |
 | Managed environments | `~/.local/share/spotui/envs/{spotui,lucidadl}/` |
+| Launcher | `~/.local/bin/spotui` |
+| systemd user unit | `~/.config/systemd/user/spotui.service` |
 
-All XDG variables are respected. Downloaded media stays at the destination
-configured in `lucidadl`; SpotUI does not move or modify existing media. Library
-roots are a separate, read-only setting.
+All XDG variables are respected; `XDG_BIN_HOME` selects the launcher directory.
+Downloaded media stays at the destination configured in `lucidadl`; SpotUI does
+not move or modify existing media. Library roots are a separate, read-only
+setting. The legacy JSON queue is read-only and remains at
+`~/.local/share/spotui/queue.json` until you remove it yourself.
 
 ## Trusted LAN access and pairing
 
@@ -252,5 +312,16 @@ protection, and the trusted-subnet source check remain enforced.
   loopback Settings; credential hashes persist in SQLite.
 - REST and SQLite are authoritative; the queue UI currently polls, with broader
   SSE planned for a later phase.
+- The legacy JSON queue migration is read-only toward the source file and uses
+  a per-record ledger for repeat-safe imports. Active legacy jobs become
+  `interrupted`; unknown or malformed records are reported and skipped.
+- Database upgrades refuse while a server holds the process lock and create a
+  verified online SQLite backup before changing schema. The application version
+  has one Python source of truth and is checked against the frontend package.
+- Install and uninstall scripts operate only on the managed uv environment,
+  launcher, and optional systemd user unit. Normal uninstall preserves user
+  configuration, database, logs, downloader environment, and media.
 
 See [`refactor.md`](refactor.md) for the full phase plan and acceptance gates.
+CI, release, and artifact verification steps are in
+[`docs/release-process.md`](docs/release-process.md).

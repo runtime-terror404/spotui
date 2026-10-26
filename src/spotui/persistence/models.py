@@ -34,6 +34,7 @@ from spotui.domain.jobs import (
     JobState,
     active_states_sql,
 )
+from spotui.domain.legacy import LegacyImportOutcome
 from spotui.domain.library import LibraryMatch, LibraryMetadataSource, LibraryScanStatus
 from spotui.domain.spotify import SpotifyEntityType
 
@@ -68,6 +69,9 @@ _QUEUE_OUTCOME_VALUES_SQL = ", ".join(
 )
 _SPOTIFY_KIND_VALUES_SQL = ", ".join(f"'{kind.value}'" for kind in SpotifyEntityType)
 _LIBRARY_MATCH_VALUES_SQL = ", ".join(f"'{match.value}'" for match in LibraryMatch)
+_LEGACY_OUTCOME_VALUES_SQL = ", ".join(
+    f"'{outcome.value}'" for outcome in LegacyImportOutcome
+)
 
 
 class DownloadJob(Base):
@@ -463,4 +467,43 @@ class AmazonCandidate(Base):
             name="duration_nonnegative",
         ),
         Index("ix_amazon_candidates_source_rank", "source_track_id", "rank"),
+    )
+
+
+class LegacyQueueImport(Base):
+    """One processed record from a legacy JSON queue.
+
+    The unique source/key pair is the idempotency ledger. It records skips and
+    ambiguous entries too, so a repeated migration reports the same outcome
+    instead of retrying or duplicating jobs.
+    """
+
+    __tablename__ = "legacy_queue_imports"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    source_path: Mapped[str] = mapped_column(Text, nullable=False)
+    legacy_key: Mapped[str] = mapped_column(String(64), nullable=False)
+    legacy_job_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    outcome: Mapped[str] = mapped_column(String(16), nullable=False)
+    reason: Mapped[str | None] = mapped_column(Text, nullable=True)
+    job_id: Mapped[str | None] = mapped_column(
+        String(32),
+        ForeignKey("download_jobs.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    imported_at: Mapped[int] = mapped_column(Integer, nullable=False, default=_utc_epoch)
+
+    __table_args__ = (
+        Index(
+            "ux_legacy_queue_imports_source_key",
+            "source_path",
+            "legacy_key",
+            unique=True,
+        ),
+        CheckConstraint(
+            f"outcome IN ({_LEGACY_OUTCOME_VALUES_SQL})",
+            name="outcome",
+        ),
+        Index("ix_legacy_queue_imports_source_path", "source_path"),
+        Index("ix_legacy_queue_imports_job_id", "job_id"),
     )
