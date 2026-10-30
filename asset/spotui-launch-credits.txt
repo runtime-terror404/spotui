@@ -1,0 +1,20 @@
+SpotUI launch videos — media credits
+
+Music:
+- "Happy Beats / Business Moves" Vol. 12 (desktop video) and Vol. 11 (mobile video)
+  by Sascha Ende — https://ende.app/en
+  Licensed under CC BY 4.0: https://ende.app/en/standard-license
+  Credit: Music: Sascha Ende, ende.app (CC BY 4.0)
+
+Sound effects:
+- Kenney.nl — https://kenney.nl
+  Licensed under CC0 1.0 (public domain).
+
+Demo content:
+- All track titles, artists, and album artwork are fictional demo material
+  generated for these videos. No Amazon or Spotify artwork is included.
+- The UI shown is the SpotUI frontend running with mock local data.
+
+Videos and poster frames:
+- spotui-desktop-launch.mp4 / .jpg — 1920x1080, 19.4s
+- spotui-mobile-launch.mp4 / .jpg — 1080x1920, 19.8s

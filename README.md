@@ -11,6 +11,7 @@
 
 <p align="center">
   <a href="#features">Features</a> ·
+  <a href="#launch-videos">Videos</a> ·
   <a href="#quick-start">Quick start</a> ·
   <a href="#phone-access">Phone access</a> ·
   <a href="#configuration">Configuration</a> ·
@@ -19,6 +20,7 @@
 </p>
 
 <p align="center">
+  <img alt="Release" src="https://img.shields.io/github/v/release/runtime-terror404/spotui?label=release&color=4f5fdb" />
   <img alt="Python 3.11+" src="https://img.shields.io/badge/python-3.11%2B-3776AB?logo=python&logoColor=white" />
   <img alt="React 19" src="https://img.shields.io/badge/react-19-61DAFB?logo=react&logoColor=black" />
   <img alt="FastAPI" src="https://img.shields.io/badge/fastapi-0.115%2B-009688?logo=fastapi&logoColor=white" />
@@ -48,9 +50,9 @@ No cloud backend, hosted account, or Spotify login is involved.
 > advice.
 
 > [!NOTE]
-> The first-release feature set is complete. CI and release workflows are in
-> place, but a tagged public release has not been published yet. Use the source
-> quick start until release assets are available.
+> **SpotUI v0.1.0 is released.** Download the wheel, installer, and checksums
+> from the [latest release](https://github.com/runtime-terror404/spotui/releases/latest),
+> or run from source using the quick start below.
 
 ## Features
 
@@ -71,6 +73,28 @@ No cloud backend, hosted account, or Spotify login is involved.
   status, application paths, and library counts.
 - **Safe operations**: verified database backups, migrations, systemd helpers,
   a data-preserving uninstaller, and a repeat-safe legacy queue import.
+
+## Launch videos
+
+<p align="center">
+  <a href="asset/spotui-desktop-launch.mp4">
+    <img src="asset/spotui-desktop-launch.jpg" alt="Watch the SpotUI desktop launch video" width="760" />
+  </a>
+</p>
+
+<p align="center"><strong>Desktop</strong> · 19.4 seconds</p>
+
+<p align="center">
+  <a href="asset/spotui-mobile-launch.mp4">
+    <img src="asset/spotui-mobile-launch.jpg" alt="Watch the SpotUI mobile launch video" width="300" />
+  </a>
+</p>
+
+<p align="center"><strong>Mobile</strong> · 19.8 seconds</p>
+
+Music: Sascha Ende, [ende.app](https://ende.app/en) (CC BY 4.0). Sound effects:
+Kenney.nl (CC0). Demo catalog titles and artwork are fictional. Full media
+credits: [`asset/spotui-launch-credits.txt`](asset/spotui-launch-credits.txt).
 
 ## Requirements
 

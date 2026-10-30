@@ -511,10 +511,9 @@ health/queue requests produced no access-log spam. The real installer was run
 twice against the built wheel with a real uv environment: the second run was
 idempotent and preserved data; uninstall removed only code and the launcher.
 
-A tagged release was attempted on `v0.1.0`; publication was blocked by the Arch
-CI failure described above. A green CI run on the fixed commit and a moved tag
-are required before publication. Not yet exercised: a successful tagged release
-publication, live release-asset download (the checksum path is shell-tested with
-fixtures), a physical phone on an external LAN, and a complete real playlist
-download through the pinned downloader. Do not publish until CI runs green on
-the tagged commit.
+A tagged release was initially blocked by the Arch CI failure described above.
+The root-container test fix was merged, CI passed, and the `v0.1.0` tag was moved
+to the verified commit; SpotUI v0.1.0 is now published. Not yet exercised: a
+clean install using the published GitHub release assets, a physical phone on an
+external LAN, and a complete real playlist download through the pinned
+downloader.
