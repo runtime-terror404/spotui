@@ -11,7 +11,7 @@
 
 <p align="center">
   <a href="#features">Features</a> ·
-  <a href="#launch-videos">Videos</a> ·
+  <a href="#demo-videos">Demo</a> ·
   <a href="#quick-start">Quick start</a> ·
   <a href="#phone-access">Phone access</a> ·
   <a href="#configuration">Configuration</a> ·
@@ -74,27 +74,28 @@ No cloud backend, hosted account, or Spotify login is involved.
 - **Safe operations**: verified database backups, migrations, systemd helpers,
   a data-preserving uninstaller, and a repeat-safe legacy queue import.
 
-## Launch videos
+## Demo videos
 
 <p align="center">
   <a href="asset/spotui-desktop-launch.mp4">
-    <img src="asset/spotui-desktop-launch.jpg" alt="Watch the SpotUI desktop launch video" width="760" />
+    <img src="asset/spotui-desktop-demo.gif" alt="Animated SpotUI desktop demo" width="760" />
   </a>
 </p>
 
-<p align="center"><strong>Desktop</strong> · 19.4 seconds</p>
+<p align="center"><strong>Desktop demo</strong> · 19.4 seconds</p>
 
 <p align="center">
   <a href="asset/spotui-mobile-launch.mp4">
-    <img src="asset/spotui-mobile-launch.jpg" alt="Watch the SpotUI mobile launch video" width="300" />
+    <img src="asset/spotui-mobile-demo.gif" alt="Animated SpotUI mobile demo" width="300" />
   </a>
 </p>
 
-<p align="center"><strong>Mobile</strong> · 19.8 seconds</p>
+<p align="center"><strong>Mobile demo</strong> · 19.8 seconds</p>
 
-Music: Sascha Ende, [ende.app](https://ende.app/en) (CC BY 4.0). Sound effects:
-Kenney.nl (CC0). Demo catalog titles and artwork are fictional. Full media
-credits: [`asset/spotui-launch-credits.txt`](asset/spotui-launch-credits.txt).
+GIF previews loop silently. Click either preview to open the full MP4 with sound. Music: Sascha Ende,
+[ende.app](https://ende.app/en) (CC BY 4.0). Sound effects: Kenney.nl (CC0).
+Demo catalog titles and artwork are fictional. Full media credits:
+[`asset/spotui-launch-credits.txt`](asset/spotui-launch-credits.txt).
 
 ## Requirements
 
