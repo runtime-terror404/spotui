@@ -28,7 +28,7 @@ from spotui.domain.errors import (
 from spotui.providers.amazon.parsing import (
     parse_artist_payload,
     parse_community_playlist_rows,
-    parse_search_payload,
+    parse_search_sections,
 )
 
 logger = logging.getLogger("spotui.amazon.browser")
@@ -38,8 +38,179 @@ USER_AGENT = (
 )
 SEARCH_URL = "https://music.amazon.in/search/"
 SEARCH_TIMEOUT = 90.0
+SEARCH_RENDER_TIMEOUT = 25_000
 ARTIST_TIMEOUT = 120.0
 PLAYLIST_TIMEOUT = 180.0
+
+_SEARCH_READY = r"""() => {
+    const roots = [];
+    const collect = (root) => {
+        roots.push(root);
+        for (const el of root.querySelectorAll("*")) {
+            if (el.shadowRoot) {
+                collect(el.shadowRoot);
+            }
+        }
+    };
+    collect(document);
+
+    const bodyText = document.body ? document.body.innerText : "";
+    if (bodyText.includes("No results found for")) {
+        return true;
+    }
+    for (const root of roots) {
+        if (root.host && (root.textContent || "").includes("No results found for")) {
+            return true;
+        }
+    }
+    for (const section of document.querySelectorAll('[data-testid^="SearchResultsWidget_"]')) {
+        if (
+            section.getAttribute("data-testid") !== "SearchResultsWidget_TopResults"
+            && section.querySelector('[data-testid="CarouselItem"]')
+        ) {
+            return true;
+        }
+    }
+    for (const root of roots) {
+        if (root.querySelector(
+            "music-horizontal-item[primary-href], " +
+            "music-vertical-item[primary-href], " +
+            "music-image-row[primary-href]"
+        )) {
+            return true;
+        }
+    }
+    return false;
+}"""
+
+_SEARCH_EXTRACT = r"""() => {
+    const roots = [];
+    const collect = (root) => {
+        roots.push(root);
+        for (const el of root.querySelectorAll("*")) {
+            if (el.shadowRoot) {
+                collect(el.shadowRoot);
+            }
+        }
+    };
+    collect(document);
+
+    const all = [];
+    for (const root of roots) {
+        for (const el of root.querySelectorAll("*")) {
+            all.push(el);
+        }
+    }
+
+    const supported = /^\/(?:artists|albums|playlists|user-playlists|tracks)\//;
+
+    // React Native Web search page.
+    let sections = [...document.querySelectorAll(
+        '[data-testid="SearchResultsWidget_Artist"], ' +
+        '[data-testid="SearchResultsWidget_Album"], ' +
+        '[data-testid="SearchResultsWidget_Playlist"], ' +
+        '[data-testid="SearchResultsWidget_Track"]'
+    )].map(section => {
+        const heading = section.querySelector("h4");
+        const items = [...section.querySelectorAll('[data-testid="CarouselItem"]')]
+            .map(item => {
+                const anchors = [...item.querySelectorAll("a[href]")]
+                    .filter(anchor => supported.test(anchor.getAttribute("href") || ""));
+                const primary = anchors.find(anchor => (anchor.innerText || "").trim())
+                    || anchors[0];
+                if (!primary) {
+                    return null;
+                }
+                const href = primary.getAttribute("href") || "";
+                const label = (primary.getAttribute("aria-label") || "")
+                    .replace(/^Navigate to\s+/, "").trim();
+                const title = (primary.innerText || "").trim() || label;
+                if (!href || !title) {
+                    return null;
+                }
+                const lines = (item.innerText || "").split("\n")
+                    .map(line => line.trim()).filter(Boolean);
+                const subtitle = lines.filter(line => line !== title).join(" ");
+                const image = item.querySelector("img");
+                return {
+                    title,
+                    subtitle,
+                    href,
+                    image: image ? (image.currentSrc || image.getAttribute("src") || "") : "",
+                };
+            })
+            .filter(Boolean);
+        return {title: heading ? (heading.innerText || "").trim() : "", items};
+    });
+
+    // Web-component search page. Items expose their data as attributes; group
+    // them by the nearest section heading above them in the rendered layout.
+    if (!sections.some(section => section.items.length > 0)) {
+        const headings = all
+            .filter(el => /^H[1-6]$/.test(el.tagName) || el.getAttribute("role") === "heading")
+            .map(el => ({
+                text: (el.innerText || el.textContent || "").trim(),
+                top: el.getBoundingClientRect().top,
+            }))
+            .filter(heading => [
+                "Top Results", "Artists", "Albums", "Playlists",
+                "Community Playlists", "Songs", "Stations", "Podcasts",
+                "Podcast Episodes",
+            ].includes(heading.text))
+            .sort((a, b) => a.top - b.top);
+
+        const groups = new Map();
+        for (const el of all) {
+            if (!["MUSIC-HORIZONTAL-ITEM", "MUSIC-VERTICAL-ITEM", "MUSIC-IMAGE-ROW"]
+                .includes(el.tagName)) {
+                continue;
+            }
+            const href = el.getAttribute("primary-href") || "";
+            const title = (el.getAttribute("primary-text") || "").trim();
+            if (!supported.test(href) || !title) {
+                continue;
+            }
+            const top = el.getBoundingClientRect().top;
+            let heading = null;
+            for (const candidate of headings) {
+                if (candidate.top <= top + 8) {
+                    heading = candidate;
+                } else {
+                    break;
+                }
+            }
+            if (!heading) {
+                continue;
+            }
+            let group = groups.get(heading.text);
+            if (!group) {
+                group = {title: heading.text, items: []};
+                groups.set(heading.text, group);
+            }
+            group.items.push({
+                title,
+                subtitle: (el.getAttribute("secondary-text") || "").trim(),
+                href,
+                image: el.getAttribute("image-src") || "",
+            });
+        }
+        sections = headings.map(heading => groups.get(heading.text)).filter(Boolean);
+    }
+
+    let shadowText = "";
+    for (const root of roots) {
+        if (root.host) {
+            shadowText += "\n" + (root.textContent || "");
+        }
+    }
+    const text = (document.body ? document.body.innerText : "") + shadowText;
+    return {
+        sections,
+        state: text.includes("No results found for") ? "empty"
+            : text.includes("Search results for") ? "results"
+            : "unknown",
+    };
+}"""
 
 T = TypeVar("T")
 
@@ -172,17 +343,45 @@ class AmazonBrowserWorker:
         return (captured[0] if captured else None), title
 
     def search(self, query: str) -> tuple[SearchSection, ...]:
-        data, _ = self.submit(
+        return self.submit(
             "search",
-            lambda: self._capture(
-                SEARCH_URL + urllib.parse.quote(query),
-                "showSearch",
-            ),
+            lambda: self._read_search_results(SEARCH_URL + urllib.parse.quote(query)),
             timeout=SEARCH_TIMEOUT,
         )
-        if data is None:
-            raise CatalogResponseError("Amazon Music did not return search results.")
-        return parse_search_payload(data)
+
+    def _read_search_results(self, url: str) -> tuple[SearchSection, ...]:
+        self._ensure_browser()
+        if self._page is None:
+            raise CatalogUnavailableError("The Amazon Music browser page is unavailable.")
+        try:
+            self._page.goto(url, wait_until="domcontentloaded", timeout=60_000)
+        except CatalogError:
+            raise
+        except Exception as exc:
+            raise CatalogResponseError("Amazon Music page could not be loaded.") from exc
+
+        try:
+            self._page.wait_for_function(
+                _SEARCH_READY,
+                timeout=SEARCH_RENDER_TIMEOUT,
+                polling=500,
+            )
+            self._page.wait_for_timeout(300)
+            payload = self._page.evaluate(_SEARCH_EXTRACT)
+        except Exception as exc:
+            raise CatalogResponseError(
+                "Amazon Music did not return search results."
+            ) from exc
+
+        if (
+            not isinstance(payload, dict)
+            or payload.get("state") == "unknown"
+            or not isinstance(payload.get("sections"), list)
+        ):
+            raise CatalogResponseError(
+                "Amazon Music returned an unexpected search response."
+            )
+        return parse_search_sections(payload["sections"])
 
     def artist_detail(self, url: str) -> EntityDetail:
         data, page_title = self.submit(

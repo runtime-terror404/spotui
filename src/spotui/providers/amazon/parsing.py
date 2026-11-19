@@ -130,62 +130,40 @@ def walk_items(obj: Any, output: list[dict[str, Any]], depth: int = 0) -> None:
             walk_items(value, output, depth + 1)
 
 
-def widget_title(widget: Mapping[str, Any]) -> str:
-    for key in ("title", "header"):
-        value = widget.get(key)
-        if isinstance(value, str) and value.strip():
-            return value.strip()
-        if isinstance(value, dict):
-            text = value.get("text") or value.get("title")
-            if isinstance(text, str) and text.strip():
-                return text.strip()
-    return ""
-
-
-def _widgets(data: Any) -> list[Any]:
-    try:
-        widgets = data["methods"][0]["template"]["widgets"]
-    except (KeyError, IndexError, TypeError) as exc:
-        raise CatalogResponseError(
-            "Amazon Music returned an unexpected search response."
-        ) from exc
-    if not isinstance(widgets, list):
-        raise CatalogResponseError("Amazon Music returned an unexpected search response.")
-    return widgets
-
-
 def _section_accepts(section_kind: CatalogKind, item_kind: CatalogKind) -> bool:
     if section_kind is CatalogKind.PLAYLIST:
         return item_kind in (CatalogKind.PLAYLIST, CatalogKind.COMMUNITY_PLAYLIST)
     return section_kind is item_kind
 
 
-def parse_search_payload(data: Any) -> tuple[SearchSection, ...]:
-    sections: list[SearchSection] = []
-    for widget in _widgets(data):
-        if not isinstance(widget, dict):
+def parse_search_sections(sections: Any) -> tuple[SearchSection, ...]:
+    if not isinstance(sections, Sequence) or isinstance(sections, (str, bytes)):
+        raise CatalogResponseError("Amazon Music returned an unexpected search response.")
+
+    parsed: list[SearchSection] = []
+    for section in sections:
+        if not isinstance(section, Mapping):
             continue
-        header = widget_title(widget)
+        header = _text(section.get("title"))
         section_kind = _HEADER_KINDS.get(header)
         if section_kind is None:
             continue
 
+        raw_items = section.get("items")
+        if not isinstance(raw_items, Sequence) or isinstance(raw_items, (str, bytes)):
+            continue
         items: list[SearchItem] = []
         seen_urls: set[str] = set()
-        raw_items = widget.get("items")
-        if not isinstance(raw_items, list):
-            continue
         for raw_item in raw_items:
-            if not isinstance(raw_item, dict):
+            if not isinstance(raw_item, Mapping):
                 continue
-            deeplink = str((raw_item.get("primaryLink") or {}).get("deeplink") or "")
+            deeplink = _text(raw_item.get("href"))
             if not deeplink:
                 continue
             item_kind = classify_deeplink(deeplink)
             if item_kind is None or not _section_accepts(section_kind, item_kind):
                 continue
-            primary_text = raw_item.get("primaryText") or {}
-            title = _text(primary_text.get("text")) or _text(raw_item.get("imageAltText"))
+            title = _text(raw_item.get("title"))
             if not title:
                 continue
             url = _absolute(deeplink)
@@ -195,17 +173,17 @@ def parse_search_payload(data: Any) -> tuple[SearchSection, ...]:
             items.append(
                 SearchItem(
                     title=title,
-                    subtitle=_text(raw_item.get("secondaryText")),
+                    subtitle=_text(raw_item.get("subtitle")),
                     url=url,
                     image=_image(raw_item.get("image")),
                     kind=item_kind,
                 )
             )
         if items:
-            sections.append(
+            parsed.append(
                 SearchSection(title=header, kind=section_kind, items=tuple(items))
             )
-    return tuple(sections)
+    return tuple(parsed)
 
 
 def parse_artist_payload(data: Any, page_title: str) -> EntityDetail:

@@ -11,7 +11,7 @@ from spotui.providers.amazon.parsing import (
     parse_artist_payload,
     parse_community_playlist_rows,
     parse_lucida_info,
-    parse_search_payload,
+    parse_search_sections,
 )
 
 FIXTURES = Path(__file__).resolve().parents[1] / "fixtures"
@@ -21,8 +21,8 @@ def load(name: str) -> object:
     return json.loads((FIXTURES / name).read_text(encoding="utf-8"))
 
 
-def test_search_payload_is_grouped_filtered_and_deduped() -> None:
-    sections = parse_search_payload(load("amazon_search.json"))
+def test_search_sections_are_grouped_filtered_and_deduped() -> None:
+    sections = parse_search_sections(load("amazon_search_sections.json"))
 
     assert [section.title for section in sections] == [
         "Artists",
@@ -34,27 +34,32 @@ def test_search_payload_is_grouped_filtered_and_deduped() -> None:
     artists, albums, songs, playlists, community = sections
     assert artists.kind is CatalogKind.ARTIST
     assert len(artists.items) == 1
-    assert artists.items[0].url == "https://music.amazon.in/artists/B006ZO8YNU/arijit-singh"
+    assert artists.items[0].url == "https://music.amazon.in/artists/B006ZO8YNU"
     assert artists.items[0].image == "https://images.example/arijit.jpg"
 
     assert albums.kind is CatalogKind.ALBUM
     assert [item.title for item in albums.items] == ["Aashiqui 2"]
 
     assert songs.kind is CatalogKind.TRACK
-    assert songs.items[0].kind is CatalogKind.TRACK
+    assert [item.title for item in songs.items] == ["Tum Hi Ho", "Hawayein"]
+    assert all(item.kind is CatalogKind.TRACK for item in songs.items)
     assert songs.items[0].subtitle == "Arijit Singh"
+    assert songs.items[0].url == "https://music.amazon.in/tracks/B002TRACK?do=play"
+    assert songs.items[1].url == (
+        "https://music.amazon.in/albums/B002ALBUM?trackAsin=B003TRACK"
+    )
 
     assert playlists.kind is CatalogKind.PLAYLIST
     assert community.kind is CatalogKind.COMMUNITY_PLAYLIST
 
 
-def test_malformed_search_payload_is_reported() -> None:
+def test_malformed_search_sections_are_reported() -> None:
     with pytest.raises(CatalogResponseError):
-        parse_search_payload({"unexpected": True})
+        parse_search_sections({"unexpected": True})
 
 
-def test_empty_search_payload_returns_no_sections() -> None:
-    assert parse_search_payload({"methods": [{"template": {"widgets": []}}]}) == ()
+def test_empty_search_sections_returns_no_sections() -> None:
+    assert parse_search_sections([]) == ()
 
 
 def test_artist_payload_parses_tracks_and_albums() -> None:

@@ -5,7 +5,7 @@ lucidadl payloads. They pin the parser's expected structure but are not
 captured live responses. Live response capture remains a manual verification
 step because provider pages are unstable and may contain account/session data.
 
-- `amazon_search.json`: `showSearch` widget shape.
+- `amazon_search_sections.json`: rendered search-section DOM shape.
 - `amazon_artist.json`: `showCatalogArtist` nested item shape.
 - `lucida_album.json`: `fetch_page_data().info` album shape.
 
