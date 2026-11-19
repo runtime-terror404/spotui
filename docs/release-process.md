@@ -45,9 +45,9 @@ uv build
 7. Commit the version and documentation changes, then tag:
 
 ```bash
-git tag -a v0.1.0 -m "SpotUI 0.1.0"
+git tag -a v0.1.1 -m "SpotUI 0.1.1"
 git push origin main
-git push origin v0.1.0
+git push origin v0.1.1
 ```
 
 The tag push starts `.github/workflows/release.yml`.
@@ -86,7 +86,7 @@ workflow permission, which the workflow requests explicitly).
 ## Verify a release
 
 ```bash
-VERSION=0.1.0
+VERSION=0.1.1
 BASE="https://github.com/runtime-terror404/spotui/releases/download/v${VERSION}"
 curl -fLO "$BASE/SHA256SUMS"
 curl -fLO "$BASE/spotui-${VERSION}-py3-none-any.whl"

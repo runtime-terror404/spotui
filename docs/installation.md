@@ -53,7 +53,7 @@ SpotUI release assets include `install.sh`, `uninstall.sh`, a wheel, a source
 distribution, and `SHA256SUMS`.
 
 ```bash
-VERSION=0.1.0
+VERSION=0.1.1
 BASE="https://github.com/runtime-terror404/spotui/releases/download/v${VERSION}"
 curl -fLO "$BASE/install.sh"
 curl -fLO "$BASE/uninstall.sh"
@@ -79,7 +79,7 @@ To install from a wheel you built locally instead:
 
 ```bash
 uv build
-./scripts/install.sh --wheel dist/spotui-0.1.0-py3-none-any.whl
+./scripts/install.sh --wheel dist/spotui-0.1.1-py3-none-any.whl
 ```
 
 Installation does not start SpotUI and does not install the downloader. It does

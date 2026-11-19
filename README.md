@@ -50,7 +50,7 @@ No cloud backend, hosted account, or Spotify login is involved.
 > advice.
 
 > [!NOTE]
-> **SpotUI v0.1.0 is released.** Download the wheel, installer, and checksums
+> **SpotUI v0.1.1 is released.** Download the wheel, installer, and checksums
 > from the [latest release](https://github.com/runtime-terror404/spotui/releases/latest),
 > or run from source using the quick start below.
 
@@ -145,7 +145,7 @@ Vite proxies `/api` to the backend.
 ### From a release
 
 ```bash
-VERSION=0.1.0
+VERSION=0.1.1
 BASE="https://github.com/runtime-terror404/spotui/releases/download/v${VERSION}"
 curl -fLO "$BASE/install.sh"
 curl -fLO "$BASE/uninstall.sh"
